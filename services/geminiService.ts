@@ -134,6 +134,39 @@ export const runComplexQuery = async (
   }
 };
 
+export const analyzeVideoUrl = async (
+  url: string,
+  onChunk: (chunk: string) => void
+): Promise<string> => {
+  try {
+    const prompt = `Please provide a detailed summary in the Odia language for the video at the following URL. Analyze its content, focusing on the main topics, key points, and overall conclusion. URL: ${url}`;
+    
+    const responseStream = await ai.models.generateContentStream({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        systemInstruction: satyashreeSystemInstruction,
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    let fullResponse = '';
+    for await (const chunk of responseStream) {
+      const chunkText = chunk.text;
+      if (chunkText) {
+        fullResponse += chunkText;
+        onChunk(chunkText);
+      }
+    }
+    return fullResponse;
+  } catch (error) {
+    console.error('Error in analyzeVideoUrl:', error);
+    const errorMessage = 'କ୍ଷମା କରନ୍ତୁ, ଭିଡିଓ ବିଶ୍ଳେଷଣ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+    onChunk(errorMessage);
+    return errorMessage;
+  }
+};
+
 
 export const generateImage = async (
     prompt: string,

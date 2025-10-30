@@ -2,7 +2,7 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { runChat } from '../services/geminiService';
+import { runChat, analyzeVideoUrl } from '../services/geminiService';
 import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon } from './icons';
 
 interface ChatProps {
@@ -28,6 +28,18 @@ const fileToBase64 = (file: File, onProgress: (progress: number) => void): Promi
     reader.onerror = (error) => reject(error);
   });
 
+const isValidUrl = (text: string): boolean => {
+    if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        return false;
+    }
+    try {
+        new URL(text);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
+
 const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -51,7 +63,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
         if (savedMessages) {
           setMessages(JSON.parse(savedMessages));
         } else {
-          setMessages([{ id: crypto.randomUUID(), sender: 'bot', text: 'ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି? ଆପଣ ଫାଇଲ୍ ମଧ୍ୟ ଅପଲୋଡ୍ କରିପାରିବେ।'}]);
+          setMessages([{ id: crypto.randomUUID(), sender: 'bot', text: 'ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି? ଆପଣ ଫାଇଲ୍ କିମ୍ବା ଭିଡିଓ ଲିଙ୍କ୍ ମଧ୍ୟ ପେଷ୍ଟ କରିପାରିବେ।'}]);
         }
       } catch (error) {
         console.error("Failed to parse chat history from localStorage", error);
@@ -112,6 +124,8 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     setIsLoading(true);
     setFileError(null);
 
+    const isVideoUrl = !file && isValidUrl(input.trim());
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       sender: 'user',
@@ -157,7 +171,12 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
         });
       };
       
-      const finalBotResponse = await runChat(currentInput, onChunk, fileData);
+      let finalBotResponse = '';
+      if (isVideoUrl) {
+          finalBotResponse = await analyzeVideoUrl(currentInput.trim(), onChunk);
+      } else {
+          finalBotResponse = await runChat(currentInput, onChunk, fileData);
+      }
       
       setMessages(prev => prev.map(m => m.id === botMessagePlaceholder.id ? {...m, text: finalBotResponse} : m));
 
@@ -279,7 +298,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="ଏକ ଫାଇଲ୍ ଯୋଗ କରନ୍ତୁ କିମ୍ବା ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..."
+            placeholder="ଏକ ଫାଇଲ୍, ଭିଡିଓ ଲିଙ୍କ୍, କିମ୍ବା ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..."
             className="flex-grow bg-slate-800 text-white placeholder-slate-400 rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition"
             disabled={isLoading}
           />
