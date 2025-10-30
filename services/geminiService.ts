@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse, Modality } from '@google/genai';
 
 const API_KEY = process.env.API_KEY;
@@ -136,12 +135,30 @@ export const runComplexQuery = async (
 };
 
 
-export const generateImage = async (prompt: string): Promise<string> => {
+export const generateImage = async (
+    prompt: string,
+    images?: { data: string; mimeType: string }[]
+): Promise<string> => {
   try {
+    const requestParts: any[] = [];
+
+    if (images && images.length > 0) {
+      images.forEach(image => {
+        requestParts.push({
+          inlineData: {
+            data: image.data,
+            mimeType: image.mimeType,
+          },
+        });
+      });
+    }
+
+    requestParts.push({ text: prompt });
+
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
-            parts: [{ text: prompt }],
+            parts: requestParts,
         },
         config: {
             responseModalities: [Modality.IMAGE],
@@ -153,7 +170,7 @@ export const generateImage = async (prompt: string): Promise<string> => {
     }
     throw new Error('No image data received');
   } catch (error) {
-    console.error('Error in generateImage:', error);
-    throw new Error('କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।');
+    console.error('Error in generateImage/editImage:', error);
+    throw new Error('କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି / ସମ୍ପାଦନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।');
   }
 };
