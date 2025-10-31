@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { useState, useRef } from 'react';
 import { generateImage } from '../services/geminiService';
-import { CameraIcon, PlusIcon, CloseIcon } from './icons';
+import { CameraIcon, PlusIcon, CloseIcon, SaveIcon } from './icons';
 
 interface UploadedImage {
   file: File;
@@ -16,6 +17,13 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = (error) => reject(error);
   });
 
+const suggestionPrompts = [
+    'ଏକ କଫି ଦୋକାନ ପାଇଁ ଏକ ଆଧୁନିକ ଲୋଗୋ',
+    'ଏକ ସ୍କୁଲ୍ କାର୍ଯ୍ୟକ୍ରମ ପାଇଁ ଏକ ରଙ୍ଗୀନ ଫ୍ଲାୟାର୍',
+    'ଗେମିଂ ୟୁଟ୍ୟୁବ୍ ଚ୍ୟାନେଲ୍ ପାଇଁ ବ୍ୟାନର୍',
+    'ଜନ୍ମଦିନ ପାର୍ଟି ପାଇଁ ଏକ ଆମନ୍ତ୍ରଣ କାର୍ଡ ଡିଜାଇନ୍',
+];
+
 const ImageGenerator: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -23,6 +31,10 @@ const ImageGenerator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setPrompt(suggestion);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
@@ -78,6 +90,16 @@ const ImageGenerator: React.FC = () => {
     }
   };
   
+  const handleDownload = () => {
+    if (!generatedImageUrl) return;
+    const link = document.createElement('a');
+    link.href = generatedImageUrl;
+    link.download = `satyashree-generated-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-full flex-grow bg-slate-800/50 rounded-lg shadow-xl overflow-hidden">
       <div className="flex-grow p-4 overflow-y-auto flex justify-center items-center">
@@ -92,13 +114,32 @@ const ImageGenerator: React.FC = () => {
                 <p>{error}</p>
             </div>
         ) : generatedImageUrl ? (
-          <img src={generatedImageUrl} alt="Generated image" className="max-h-full max-w-full object-contain rounded-lg shadow-lg" />
+          <div className="text-center flex flex-col items-center gap-4">
+            <img src={generatedImageUrl} alt="Generated image" className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-lg" />
+            <button
+                onClick={handleDownload}
+                className="inline-flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-5 rounded-full hover:bg-green-600 transition-colors shadow-md"
+              >
+                <SaveIcon />
+                <span>ଚିତ୍ର ଡାଉନଲୋଡ୍ କରନ୍ତୁ</span>
+              </button>
+          </div>
         ) : (
-           <div className="text-center text-slate-400">
+           <div className="text-center text-slate-400 max-w-lg">
                 <CameraIcon />
-                <h2 className="text-2xl mt-2">ଚିତ୍ର ସୃଷ୍ଟି</h2>
-                <p>ଏକ ଚିତ୍ର ସୃଷ୍ଟି କରିବାକୁ ନିମ୍ନରେ ଏକ ପ୍ରମ୍ପ୍ଟ୍ ଲେଖନ୍ତୁ।</p>
-                <p className="text-sm">ଆପଣ ଏକ ଚିତ୍ର ସମ୍ପାଦନ କରିବାକୁ ଅପଲୋଡ୍ ମଧ୍ୟ କରିପାରିବେ।</p>
+                <h2 className="text-2xl mt-2 font-bold text-cyan-400">ଚିତ୍ର ସୃଷ୍ଟି</h2>
+                <p className="mt-2">ଲୋଗୋ, ଫ୍ଲାୟାର୍, ବ୍ୟାନର୍, ଏବଂ ଆହୁରି ଅନେକ କିଛି ସୃଷ୍ଟି କରନ୍ତୁ। କେବଳ ଓଡ଼ିଆରେ ଆପଣଙ୍କ ଆବଶ୍ୟକତା ବର୍ଣ୍ଣନା କରନ୍ତୁ।</p>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                    {suggestionPrompts.map((suggestion, index) => (
+                        <button
+                            key={index}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="bg-slate-700/50 text-slate-300 text-sm px-3 py-1.5 rounded-full hover:bg-slate-700 hover:text-cyan-400 transition-colors"
+                        >
+                            {suggestion}
+                        </button>
+                    ))}
+                </div>
             </div>
         )}
       </div>
@@ -128,7 +169,7 @@ const ImageGenerator: React.FC = () => {
             <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={uploadedImages.length > 0 ? "ଚିତ୍ରଗୁଡ଼ିକୁ କିପରି ପରିବର୍ତ୍ତନ କରିବେ ବର୍ଣ୍ଣନା କରନ୍ତୁ..." : "ଯେପରି: ଏକ ନୀଳ ଘୋଡା ଚନ୍ଦ୍ରରେ ଦୌଡୁଛି..."}
+                placeholder={uploadedImages.length > 0 ? "ଚିତ୍ରଗୁଡ଼ିକୁ କିପରି ପରିବର୍ତ୍ତନ କରିବେ ବର୍ଣ୍ଣନା କରନ୍ତୁ..." : "ଏକ ଲୋଗୋ, ଫ୍ଲାୟାର୍, କିମ୍ବା ଆପଣଙ୍କ କଳ୍ପନାର ଯେକୌଣସି ଡିଜାଇନ୍ ବର୍ଣ୍ଣନା କରନ୍ତୁ..."}
                 className="w-full bg-slate-700 text-white rounded-lg p-3 h-24 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 disabled={isLoading}
             />

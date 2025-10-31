@@ -174,8 +174,9 @@ export const generateImage = async (
 ): Promise<string> => {
   try {
     const requestParts: any[] = [];
+    const isEditing = images && images.length > 0;
 
-    if (images && images.length > 0) {
+    if (isEditing) {
       images.forEach(image => {
         requestParts.push({
           inlineData: {
@@ -186,7 +187,11 @@ export const generateImage = async (
       });
     }
 
-    requestParts.push({ text: prompt });
+    const finalPrompt = isEditing 
+        ? prompt 
+        : `Create a professional and high-quality graphic design based on the following description. This could be a logo, flyer, banner, or another visual concept. Focus on clarity, aesthetics, and relevance to the prompt. Description: "${prompt}"`;
+
+    requestParts.push({ text: finalPrompt });
 
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -197,10 +202,12 @@ export const generateImage = async (
             responseModalities: [Modality.IMAGE],
         },
     });
-    const part = response.candidates?.[0]?.content?.parts[0];
-    if (part && part.inlineData) {
-        return part.inlineData.data;
+    
+    const imagePart = response.candidates?.[0]?.content?.parts.find(p => !!p.inlineData);
+    if (imagePart && imagePart.inlineData) {
+        return imagePart.inlineData.data;
     }
+
     throw new Error('No image data received');
   } catch (error) {
     console.error('Error in generateImage/editImage:', error);

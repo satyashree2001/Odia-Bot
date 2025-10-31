@@ -1,14 +1,39 @@
-
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type GroundingChunk } from '../types';
 import { runSearch } from '../services/geminiService';
 import { SendIcon, LinkIcon } from './icons';
 
+const searchSuggestions = [
+  'ଓଡ଼ିଶାରେ ଆଜିର ପାଣିପାଗ କିପରି ଅଛି?',
+  'ଭାରତର ପ୍ରଧାନମନ୍ତ୍ରୀ କିଏ?',
+  'ଓଡ଼ିଆ ସାହିତ୍ୟର ଇତିହାସ',
+  'କୋଣାର୍କ ମନ୍ଦିର କିଏ ତିଆରି କରିଥିଲେ?',
+  'ପଖାଳ ଦିବସ କେବେ ପାଳନ କରାଯାଏ?',
+  'ଓଡ଼ିଶାର ପ୍ରମୁଖ ପର୍ବପର୍ବାଣି କଣ?',
+  'ଜଗନ୍ନାଥ ପୁରୀ ମନ୍ଦିରର ରହସ୍ୟ',
+  'ଚନ୍ଦ୍ରଯାନ-୩ ମିଶନ ବିଷୟରେ କୁହନ୍ତୁ',
+  'ସମ୍ବଲପୁରୀ ଶାଢୀର ବିଶେଷତା କଣ?',
+  'ଓଡ଼ିଶାରେ ପର୍ଯ୍ୟଟନ ସ୍ଥଳୀ',
+  'ହକି ବିଶ୍ଵକପ ୨୦୨୩ର ବିଜେତା କିଏ?',
+  'ସର୍ବଶେଷ ଓଡ଼ିଆ ଚଳଚ୍ଚିତ୍ର ଖବର',
+  'ଓଡ଼ିଶାରେ ନୂତନ ମନ୍ତ୍ରୀମଣ୍ଡଳ',
+  'ଆଜିର ମୁଖ୍ୟ ଖବର ଓଡ଼ିଶା',
+  'ଭାରତର ୨୦୨୪ ବଜେଟ୍',
+  'ପ୍ୟାରିସ୍ ଅଲିମ୍ପିକ୍ସ ୨୦୨୪ ରେ ଭାରତ',
+  'ଆଗାମୀ ଓଡ଼ିଆ ଚଳଚ୍ଚିତ୍ର',
+  'ରଥଯାତ୍ରାର ମହତ୍ତ୍ଵ',
+  'ଓଡ଼ିଶୀ ନୃତ୍ୟର ଇତିହାସ',
+  'ଓଡ଼ିଆ ଖାଦ୍ୟ ରେସିପି',
+  'ଓଡ଼ିଶାର ଜଣାଶୁଣା ବ୍ୟକ୍ତିତ୍ୱ',
+  'କୃତ୍ରିମ ବୁଦ୍ଧିମତ୍ତା (AI) କ\'ଣ?',
+];
+
 const Search: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [response, setResponse] = useState<{ text: string; chunks: GroundingChunk[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const responseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -17,12 +42,20 @@ const Search: React.FC = () => {
     }
   }, [response?.text]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim() || isLoading) return;
+  useEffect(() => {
+    const getShuffledSuggestions = (arr: string[], num: number) => {
+      const shuffled = [...arr].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, num);
+    };
+    setSuggestions(getShuffledSuggestions(searchSuggestions, 4));
+  }, []);
+
+  const performSearch = async (currentPrompt: string) => {
+    if (!currentPrompt.trim() || isLoading) return;
 
     setIsLoading(true);
     setResponse({ text: '', chunks: [] });
+    setPrompt(currentPrompt); 
 
     try {
       const onChunk = (chunk: string) => {
@@ -32,7 +65,7 @@ const Search: React.FC = () => {
         }));
       };
       
-      const result = await runSearch(prompt, onChunk);
+      const result = await runSearch(currentPrompt, onChunk);
       
       setResponse({ text: result.text, chunks: result.groundingChunks });
 
@@ -43,12 +76,32 @@ const Search: React.FC = () => {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(prompt);
+  };
+  
+  const handleSuggestionClick = (suggestion: string) => {
+    performSearch(suggestion);
+  };
+
   return (
     <div className="flex flex-col h-full flex-grow bg-slate-800/50 rounded-lg shadow-xl">
       <div className="flex-grow p-4 overflow-y-auto">
         {!response && (
-           <div className="flex justify-center items-center h-full text-slate-400">
-             <p>ରିଅଲ୍-ଟାଇମ୍ ତଥ୍ୟ ପାଇବାକୁ କିଛି ଖୋଜନ୍ତୁ।</p>
+           <div className="flex flex-col justify-center items-center h-full text-center text-slate-400">
+             <p className="text-lg">ରିଅଲ୍-ଟାଇମ୍ ତଥ୍ୟ ପାଇବାକୁ କିଛି ଖୋଜନ୍ତୁ।</p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-lg">
+                {suggestions.map((s, i) => (
+                    <button
+                        key={i}
+                        onClick={() => handleSuggestionClick(s)}
+                        className="bg-slate-700/50 text-slate-300 text-sm px-3 py-1.5 rounded-full hover:bg-slate-700 hover:text-cyan-400 transition-colors"
+                    >
+                        {s}
+                    </button>
+                ))}
+             </div>
            </div>
         )}
         {response && (

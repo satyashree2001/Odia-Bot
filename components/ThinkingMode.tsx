@@ -1,8 +1,19 @@
-
 import React from 'react';
 import { useState } from 'react';
-import { runComplexQuery } from '../services/geminiService';
+import { runComplexQuery, analyzeVideoUrl } from '../services/geminiService';
 import { SparklesIcon } from './icons';
+
+const isValidUrl = (text: string): boolean => {
+    if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        return false;
+    }
+    try {
+        new URL(text);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
 
 const ThinkingMode: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -16,11 +27,20 @@ const ThinkingMode: React.FC = () => {
     setIsLoading(true);
     setResponse('');
 
+    const isVideoUrl = isValidUrl(prompt.trim());
+    const currentPrompt = prompt.trim();
+
     try {
       const onChunk = (chunk: string) => {
         setResponse(prev => (prev || '') + chunk);
       };
-      const finalResponse = await runComplexQuery(prompt, onChunk);
+
+      let finalResponse = '';
+      if (isVideoUrl) {
+        finalResponse = await analyzeVideoUrl(currentPrompt, onChunk);
+      } else {
+        finalResponse = await runComplexQuery(currentPrompt, onChunk);
+      }
       setResponse(finalResponse);
     } catch (error) {
       // Error is streamed into the response by the service
@@ -33,8 +53,9 @@ const ThinkingMode: React.FC = () => {
     <div className="flex flex-col h-full flex-grow bg-slate-800/50 rounded-lg shadow-xl overflow-hidden">
       <div className="flex-grow p-4 overflow-y-auto">
         {response === null && !isLoading && (
-            <div className="flex justify-center items-center h-full text-slate-400">
+            <div className="flex flex-col justify-center items-center h-full text-center text-slate-400">
                 <p>ଜଟିଳ କାର୍ଯ୍ୟଗୁଡ଼ିକ ପାଇଁ ଏହି ମୋଡ୍ ବ୍ୟବହାର କରନ୍ତୁ।</p>
+                <p className="text-sm mt-1">ଆପଣ ବିଶ୍ଳେଷଣ ପାଇଁ ଏକ ଭିଡିଓ URL ମଧ୍ୟ ପେଷ୍ଟ କରିପାରିବେ।</p>
             </div>
         )}
         {response !== null && (
@@ -48,7 +69,7 @@ const ThinkingMode: React.FC = () => {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="ଆପଣଙ୍କର ଜଟିଳ ପ୍ରଶ୍ନ କିମ୍ବା କାର୍ଯ୍ୟ ଏଠାରେ ଲେଖନ୍ତୁ..."
+            placeholder="ଆପଣଙ୍କର ଜଟିଳ ପ୍ରଶ୍ନ, କାର୍ଯ୍ୟ, କିମ୍ବା ଭିଡିଓ URL ଏଠାରେ ଲେଖନ୍ତୁ..."
             className="w-full bg-slate-700 text-white rounded-lg p-3 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500"
             disabled={isLoading}
           />
