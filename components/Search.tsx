@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type GroundingChunk } from '../types';
 import { runSearch } from '../services/geminiService';
-import { SendIcon, LinkIcon } from './icons';
+import { SendIcon, LinkIcon, MapPinIcon } from './icons';
 
 const searchSuggestions = [
   'ଓଡ଼ିଶାରେ ଆଜିର ପାଣିପାଗ କିପରି ଅଛି?',
@@ -34,6 +34,8 @@ const Search: React.FC = () => {
   const [response, setResponse] = useState<{ text: string; chunks: GroundingChunk[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,6 +45,20 @@ const Search: React.FC = () => {
   }, [response?.text]);
 
   useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationError(null);
+      },
+      (error) => {
+        console.warn(`Geolocation error: ${error.message}`);
+        setLocationError('ସ୍ଥାନ ସୂଚନା ପାଇବାରେ ବିଫଳ। ସ୍ଥାନୀୟ ଫଳାଫଳ ପ୍ରଭାବିତ ହୋଇପାରେ।');
+      }
+    );
+
     const getShuffledSuggestions = (arr: string[], num: number) => {
       const shuffled = [...arr].sort(() => 0.5 - Math.random());
       return shuffled.slice(0, num);
@@ -65,7 +81,7 @@ const Search: React.FC = () => {
         }));
       };
       
-      const result = await runSearch(currentPrompt, onChunk);
+      const result = await runSearch(currentPrompt, onChunk, location ?? undefined);
       
       setResponse({ text: result.text, chunks: result.groundingChunks });
 
@@ -111,23 +127,43 @@ const Search: React.FC = () => {
               <div className="mt-6 pt-4 border-t border-slate-600">
                 <h3 className="font-bold text-cyan-400 mb-3">ଉତ୍ସଗୁଡ଼ିକ:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {response.chunks.map((chunk, index) => (
-                    chunk.web && (
-                       <a
-                          key={index}
-                          href={chunk.web.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-slate-800/50 p-3 rounded-lg hover:bg-slate-700/50 transition-colors flex items-start gap-3 border border-slate-700"
-                        >
-                          <div className="flex-shrink-0 pt-1 text-slate-400"><LinkIcon /></div>
-                          <div>
-                            <p className="font-semibold text-cyan-400 break-words">{chunk.web.title || 'Untitled Source'}</p>
-                            <p className="text-xs text-slate-400 truncate">{chunk.web.uri}</p>
-                          </div>
-                        </a>
-                    )
-                  ))}
+                  {response.chunks.map((chunk, index) => {
+                    if (chunk.web) {
+                      return (
+                         <a
+                            key={`web-${index}`}
+                            href={chunk.web.uri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-slate-800/50 p-3 rounded-lg hover:bg-slate-700/50 transition-colors flex items-start gap-3 border border-slate-700"
+                          >
+                            <div className="flex-shrink-0 pt-1 text-slate-400"><LinkIcon /></div>
+                            <div>
+                              <p className="font-semibold text-cyan-400 break-words">{chunk.web.title || 'Untitled Source'}</p>
+                              <p className="text-xs text-slate-400 truncate">{chunk.web.uri}</p>
+                            </div>
+                          </a>
+                      );
+                    }
+                    if (chunk.maps) {
+                      return (
+                         <a
+                            key={`map-${index}`}
+                            href={chunk.maps.uri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-slate-800/50 p-3 rounded-lg hover:bg-slate-700/50 transition-colors flex items-start gap-3 border border-slate-700"
+                          >
+                            <div className="flex-shrink-0 pt-1 text-slate-400"><MapPinIcon /></div>
+                            <div>
+                              <p className="font-semibold text-cyan-400 break-words">{chunk.maps.title || 'Untitled Place'}</p>
+                              <p className="text-xs text-slate-400 truncate">{chunk.maps.uri}</p>
+                            </div>
+                          </a>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
               </div>
             )}
@@ -152,6 +188,7 @@ const Search: React.FC = () => {
             <SendIcon />
           </button>
         </form>
+         {locationError && <p className="text-xs text-red-400 text-center mt-2">{locationError}</p>}
       </div>
     </div>
   );

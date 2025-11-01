@@ -79,16 +79,27 @@ export const runChat = async (
 
 export const runSearch = async (
   prompt: string,
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  latLng?: { latitude: number; longitude: number }
 ): Promise<{ text: string, groundingChunks: any[] }> => {
   try {
+    const config: any = {
+      systemInstruction: satyashreeSystemInstruction,
+      tools: [{ googleSearch: {} }, { googleMaps: {} }],
+    };
+
+    if (latLng) {
+      config.toolConfig = {
+        retrievalConfig: {
+          latLng: latLng,
+        },
+      };
+    }
+
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        systemInstruction: satyashreeSystemInstruction,
-        tools: [{ googleSearch: {} }],
-      },
+      config: config,
     });
 
     let fullText = '';
@@ -199,42 +210,52 @@ export const generateImage = async (
     images?: { data: string; mimeType: string }[]
 ): Promise<string> => {
   try {
-    const requestParts: any[] = [];
     const isEditing = images && images.length > 0;
 
     if (isEditing) {
-      images.forEach(image => {
-        requestParts.push({
-          inlineData: {
-            data: image.data,
-            mimeType: image.mimeType,
-          },
+        const requestParts: any[] = [];
+        images.forEach(image => {
+            requestParts.push({
+                inlineData: {
+                    data: image.data,
+                    mimeType: image.mimeType,
+                },
+            });
         });
-      });
+        requestParts.push({ text: prompt });
+
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: requestParts },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+        
+        const imagePart = response.candidates?.[0]?.content?.parts.find(p => !!p.inlineData);
+        if (imagePart && imagePart.inlineData) {
+            return imagePart.inlineData.data;
+        }
+        throw new Error('No image data received during editing');
+
+    } else {
+        const finalPrompt = `Create a professional and high-quality graphic design based on the following description. This could be a logo, flyer, banner, or another visual concept. Focus on clarity, aesthetics, and relevance to the prompt. Description: "${prompt}"`;
+        
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: finalPrompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/png',
+              aspectRatio: '1:1',
+            },
+        });
+        
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            return response.generatedImages[0].image.imageBytes;
+        }
+        throw new Error('No image data received during generation');
     }
-
-    const finalPrompt = isEditing 
-        ? prompt 
-        : `Create a professional and high-quality graphic design based on the following description. This could be a logo, flyer, banner, or another visual concept. Focus on clarity, aesthetics, and relevance to the prompt. Description: "${prompt}"`;
-
-    requestParts.push({ text: finalPrompt });
-
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-            parts: requestParts,
-        },
-        config: {
-            responseModalities: [Modality.IMAGE],
-        },
-    });
-    
-    const imagePart = response.candidates?.[0]?.content?.parts.find(p => !!p.inlineData);
-    if (imagePart && imagePart.inlineData) {
-        return imagePart.inlineData.data;
-    }
-
-    throw new Error('No image data received');
   } catch (error) {
     console.error('Error in generateImage/editImage:', error);
     throw new Error('କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି / ସମ୍ପାଦନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।');
