@@ -41,9 +41,8 @@ const ImageGenerator: React.FC = () => {
       if (!files) return;
 
       try {
-        // FIX: Explicitly type `file` as `File` to resolve type inference issue.
         const newImagesPromises = Array.from(files).map(async (file: File) => {
-            if (!file.type.startsWith('image/')) return null; // Simple validation
+            if (!file.type.startsWith('image/')) return null;
             const base64 = await fileToBase64(file);
             return { file, base64 };
         });
@@ -54,7 +53,6 @@ const ImageGenerator: React.FC = () => {
         console.error("Error reading files:", err);
         setError("ଫାଇଲ୍ ପଢିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।");
       } finally {
-        // Reset file input to allow selecting the same file again
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -83,7 +81,6 @@ const ImageGenerator: React.FC = () => {
       const base64Image = await generateImage(prompt, imagePayload);
       setGeneratedImageUrl(`data:image/png;base64,${base64Image}`);
     } catch (err) {
-      // FIX: Safely handle error object.
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
@@ -100,8 +97,26 @@ const ImageGenerator: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const handleUseAsBase = async () => {
+    if (!generatedImageUrl) return;
+    const response = await fetch(generatedImageUrl);
+    const blob = await response.blob();
+    const file = new File([blob], `edited-${Date.now()}.png`, { type: 'image/png' });
+    const base64 = await fileToBase64(file);
+    setUploadedImages([{ file, base64 }]);
+    setGeneratedImageUrl(null);
+    setPrompt('');
+  };
+
+  const handleStartNew = () => {
+    setGeneratedImageUrl(null);
+    setUploadedImages([]);
+    setPrompt('');
+    setError(null);
+  };
+
   return (
-    <div className="flex flex-col h-full flex-grow bg-slate-800/50 rounded-lg shadow-xl overflow-hidden">
+    <div className="flex flex-col h-full flex-grow bg-slate-900/50 rounded-xl shadow-2xl border border-slate-700/50 overflow-hidden">
       <div className="flex-grow p-4 overflow-y-auto flex justify-center items-center">
         {isLoading ? (
           <div className="text-center">
@@ -116,13 +131,27 @@ const ImageGenerator: React.FC = () => {
         ) : generatedImageUrl ? (
           <div className="text-center flex flex-col items-center gap-4">
             <img src={generatedImageUrl} alt="Generated image" className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-lg" />
-            <button
-                onClick={handleDownload}
-                className="inline-flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-5 rounded-full hover:bg-green-600 transition-colors shadow-md"
-              >
-                <SaveIcon />
-                <span>ଚିତ୍ର ଡାଉନଲୋଡ୍ କରନ୍ତୁ</span>
-              </button>
+            <div className="flex flex-wrap justify-center gap-3 mt-2">
+                <button
+                    onClick={handleDownload}
+                    className="inline-flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 transition-colors shadow-md text-sm"
+                  >
+                    <SaveIcon />
+                    <span>ଡାଉନଲୋଡ୍</span>
+                </button>
+                 <button
+                    onClick={handleUseAsBase}
+                    className="inline-flex items-center gap-2 bg-slate-600 text-white font-bold py-2 px-4 rounded-full hover:bg-slate-500 transition-colors shadow-md text-sm"
+                  >
+                    <span>ଏହାକୁ ସମ୍ପାଦନ କରନ୍ତୁ</span>
+                </button>
+                 <button
+                    onClick={handleStartNew}
+                    className="inline-flex items-center gap-2 bg-cyan-500 text-white font-bold py-2 px-4 rounded-full hover:bg-cyan-600 transition-colors shadow-md text-sm"
+                  >
+                    <span>ନୂଆ ଆରମ୍ଭ କରନ୍ତୁ</span>
+                </button>
+            </div>
           </div>
         ) : (
            <div className="text-center text-slate-400 max-w-lg">
@@ -143,7 +172,7 @@ const ImageGenerator: React.FC = () => {
             </div>
         )}
       </div>
-      <div className="p-4 bg-slate-800/70 rounded-b-lg border-t border-slate-700/50">
+      <div className="p-4 bg-slate-900/30 border-t border-slate-700/50 backdrop-blur-sm">
         {uploadedImages.length > 0 && (
              <div className="flex items-center gap-2 overflow-x-auto mb-3 p-2 bg-slate-900/50 rounded-lg">
                 {uploadedImages.map((image, index) => (
@@ -170,7 +199,7 @@ const ImageGenerator: React.FC = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder={uploadedImages.length > 0 ? "ଚିତ୍ରଗୁଡ଼ିକୁ କିପରି ପରିବର୍ତ୍ତନ କରିବେ ବର୍ଣ୍ଣନା କରନ୍ତୁ..." : "ଏକ ଲୋଗୋ, ଫ୍ଲାୟାର୍, କିମ୍ବା ଆପଣଙ୍କ କଳ୍ପନାର ଯେକୌଣସି ଡିଜାଇନ୍ ବର୍ଣ୍ଣନା କରନ୍ତୁ..."}
-                className="w-full bg-slate-700 text-white rounded-lg p-3 h-24 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-slate-800 text-white rounded-lg p-3 h-24 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 disabled={isLoading}
             />
             <input 

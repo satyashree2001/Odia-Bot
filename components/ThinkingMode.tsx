@@ -78,8 +78,8 @@ const ThinkingMode: React.FC = () => {
   };
   
   return (
-    <div className="flex flex-col h-full flex-grow bg-slate-800/50 rounded-lg shadow-xl overflow-hidden">
-      <div className="flex-grow p-4 overflow-y-auto space-y-4">
+    <div className="flex flex-col h-full flex-grow bg-slate-900/50 rounded-xl shadow-2xl border border-slate-700/50 overflow-hidden">
+      <div className="flex-grow p-4 sm:p-6 overflow-y-auto space-y-4">
         {conversation.length === 0 && !isLoading && (
             <div className="flex flex-col justify-center items-center h-full text-center text-slate-400">
                 <SparklesIcon />
@@ -95,10 +95,13 @@ const ThinkingMode: React.FC = () => {
                     <SparklesIcon />
                   </div>
                 )}
-              <div className={`max-w-xl p-4 rounded-2xl shadow-md ${turn.role === 'user' ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-br-md' : 'bg-slate-700 text-slate-200 rounded-bl-md'}`}>
-                <p className="text-[15px] whitespace-pre-wrap" style={{lineHeight: '1.625'}}>{turn.text}</p>
-                 {turn.role === 'model' && isLoading && conversation[conversation.length-1] === turn && !turn.text && (
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping ml-2 inline-block"></div>
+              <div className={`max-w-xl p-4 rounded-2xl shadow-md ${turn.role === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md'}`}>
+                {turn.role === 'model' && isLoading && index === conversation.length - 1 && !turn.text ? (
+                     <div className="flex items-center justify-center p-2">
+                        <SparklesIcon className="h-8 w-8 text-cyan-400 sparkle-animation" />
+                    </div>
+                ) : (
+                    <p className="text-[15px] whitespace-pre-wrap" style={{lineHeight: '1.625'}}>{turn.text}</p>
                 )}
               </div>
               {turn.role === 'user' && (
@@ -111,13 +114,13 @@ const ThinkingMode: React.FC = () => {
         ))}
          <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 bg-slate-800/70 rounded-b-lg border-t border-slate-700/50">
+      <div className="p-4 bg-slate-900/30 border-t border-slate-700/50 backdrop-blur-sm">
         <form onSubmit={handleSubmit}>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="ଆପଣଙ୍କର ଜଟିଳ ପ୍ରଶ୍ନ, କାର୍ଯ୍ୟ, କିମ୍ବା ଭିଡିଓ URL ଏଠାରେ ଲେଖନ୍ତୁ..."
-            className="w-full bg-slate-700 text-white rounded-lg p-3 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full bg-slate-800 text-white rounded-lg p-3 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-400"
             disabled={isLoading}
           />
           <button

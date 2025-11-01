@@ -52,6 +52,8 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const streamingMessageRef = useRef<HTMLParagraphElement>(null);
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -71,16 +73,13 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
         setMessages([]);
       }
     } else {
-      setMessages([]);
+      setMessages([{ id: crypto.randomUUID(), sender: 'bot', text: 'ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?'}]);
     }
   }, [currentUser]);
   
   useEffect(() => {
     if (currentUser && messages.length > 0) {
-      const lastMessage = messages[messages.length-1];
-      if(lastMessage.text) {
-         localStorage.setItem(`satyashree_chatHistory_${currentUser}`, JSON.stringify(messages));
-      }
+      localStorage.setItem(`satyashree_chatHistory_${currentUser}`, JSON.stringify(messages));
     }
     scrollToBottom();
   }, [messages, currentUser]);
@@ -174,14 +173,13 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
 
     try {
       const onChunk = (chunk: string) => {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMessage = newMessages.find(m => m.id === botMessagePlaceholder.id);
-          if (lastMessage) {
-            lastMessage.text += chunk;
-          }
-          return newMessages;
-        });
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === botMessagePlaceholder.id
+              ? { ...m, text: m.text + chunk }
+              : m
+          )
+        );
       };
       
       const finalBotResponse = await runChat(historyForApi, currentInput, onChunk, fileData);
@@ -223,12 +221,14 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
                     ସ
                   </div>
                 )}
-              <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md'}`}>
+              <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md'}`}>
                 {msg.file && renderFilePreview(msg.file)}
-                <p className={`text-[15px] ${msg.file ? 'mt-2' : ''}`} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.625' }}>{msg.text}</p>
-                {msg.sender === 'bot' && isLoading && messages[messages.length-1].id === msg.id && !msg.text && (
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping ml-2 inline-block"></div>
-                )}
+                <div className={`text-[15px] ${msg.file ? 'mt-2' : ''}`} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.625' }}>
+                  {msg.text}
+                  {msg.sender === 'bot' && isLoading && messages[messages.length-1].id === msg.id && (
+                    <span className="blinking-cursor"></span>
+                  )}
+                </div>
               </div>
               {msg.sender === 'user' && (
                   <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center font-bold text-white text-lg">
@@ -263,10 +263,8 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
             )}
           </div>
         ))}
-        {!currentUser && messages.length === 0 && !isLoading && (
+        {!currentUser && messages.length > 0 && messages.every(m => m.sender === 'bot') && !isLoading && (
           <div className="text-center text-slate-400 mt-8">
-            <p className="text-lg">ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ।</p>
-            <p>ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?</p>
             <p className="text-sm mt-4">ଚାଟ୍ ଇତିହାସ ସଞ୍ଚୟ କରିବାକୁ ସାଇନ୍ ଇନ୍ କରନ୍ତୁ।</p>
           </div>
         )}

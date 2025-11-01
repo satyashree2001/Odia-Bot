@@ -72,8 +72,8 @@ const App: React.FC = () => {
   return (
     <>
       {showWelcome && <Welcome onDismiss={handleDismissWelcome} />}
-      <div className={`min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans ${showWelcome ? 'hidden' : ''}`}>
-        <header className="bg-slate-800/50 backdrop-blur-sm shadow-lg p-4 sticky top-0 z-10">
+      <div className={`min-h-screen bg-transparent text-slate-100 flex flex-col font-sans ${showWelcome ? 'hidden' : ''}`}>
+        <header className="bg-slate-800/50 backdrop-blur-sm shadow-lg p-4 sticky top-0 z-10 border-b border-slate-700/50">
           <div className="container mx-auto flex justify-between items-center">
             <h1 className="text-2xl font-bold text-cyan-400">Satyashree (ସତ୍ୟଶ୍ରୀ)</h1>
             <div className="flex items-center gap-4">
@@ -84,8 +84,8 @@ const App: React.FC = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
                       activeTab === tab.id
-                        ? 'bg-cyan-500 text-white shadow-md'
-                        : 'hover:bg-slate-700'
+                        ? 'bg-slate-700 text-cyan-400 font-semibold'
+                        : 'text-slate-300 hover:bg-slate-700/50 hover:text-cyan-400'
                     }`}
                   >
                     {tab.icon}
@@ -114,10 +114,12 @@ const App: React.FC = () => {
         </header>
         
         <main className="flex-grow container mx-auto p-4 flex flex-col">
-          {renderContent()}
+           <div key={activeTab} className="fade-in flex-grow flex flex-col">
+            {renderContent()}
+          </div>
         </main>
 
-        <nav className="md:hidden bg-slate-800 p-2 grid grid-cols-5 gap-1 sticky bottom-0 z-10">
+        <nav className="md:hidden bg-slate-800/70 backdrop-blur-sm border-t border-slate-700/50 p-2 grid grid-cols-5 gap-1 sticky bottom-0 z-10">
           {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -125,7 +127,7 @@ const App: React.FC = () => {
                   className={`flex flex-col items-center justify-center p-1 rounded-lg transition-all duration-200 ${
                     activeTab === tab.id
                       ? 'bg-cyan-500 text-white'
-                      : 'hover:bg-slate-700'
+                      : 'text-slate-300 hover:bg-slate-700'
                   }`}
                 >
                   {tab.icon}
