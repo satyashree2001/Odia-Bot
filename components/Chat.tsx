@@ -3,7 +3,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
 import { runChat } from '../services/geminiService';
-import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon } from './icons';
+import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon } from './icons';
 
 interface ChatProps {
   currentUser: string | null;
@@ -48,6 +48,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +116,18 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     setMessages(prevMessages => prevMessages.map(msg => 
         msg.id === messageId ? { ...msg, feedback } : msg
     ));
+  };
+  
+  const handleCopy = (textToCopy: string, messageId: string) => {
+    if (!textToCopy) return;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        setCopiedMessageId(messageId);
+        setTimeout(() => {
+            setCopiedMessageId(null);
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,6 +243,20 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
                     </button>
                     <button onClick={() => handleFeedback(msg.id, 'disliked')} disabled={!!msg.feedback} className="disabled:opacity-50">
                         <ThumbsDownIcon className={msg.feedback === 'disliked' ? 'text-red-400' : 'text-slate-500 hover:text-white transition-colors'} />
+                    </button>
+                    <button 
+                      onClick={() => handleCopy(msg.text, msg.id)} 
+                      className="text-slate-500 hover:text-white transition-colors flex items-center"
+                      disabled={copiedMessageId === msg.id}
+                    >
+                        {copiedMessageId === msg.id ? (
+                            <>
+                                <CheckIcon className="text-green-400" />
+                                <span className="text-xs text-green-400 ml-1">Copied!</span>
+                            </>
+                        ) : (
+                            <CopyIcon />
+                        )}
                     </button>
                     {msg.feedback && <p className="text-xs text-slate-400">ପ୍ରତିକ୍ରିୟା ପାଇଁ ଧନ୍ୟବାଦ!</p>}
                 </div>
