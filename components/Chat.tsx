@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
 import { runChat } from '../services/geminiService';
-import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon } from './icons';
+import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon } from './icons';
 
 interface ChatProps {
   currentUser: string | null;
@@ -28,18 +27,6 @@ const fileToBase64 = (file: File, onProgress: (progress: number) => void): Promi
     reader.onerror = (error) => reject(error);
   });
 
-const isValidUrl = (text: string): boolean => {
-    if (!text.startsWith('http://') && !text.startsWith('https://')) {
-        return false;
-    }
-    try {
-        new URL(text);
-        return true;
-    } catch (_) {
-        return false;
-    }
-};
-
 const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -49,11 +36,15 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  
+  const [isRecording, setIsRecording] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const streamingMessageRef = useRef<HTMLParagraphElement>(null);
+  const recognitionRef = useRef<any>(null);
 
+  const isSpeechRecognitionSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const isSpeechSynthesisSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,6 +74,95 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     }
     scrollToBottom();
   }, [messages, currentUser]);
+
+  useEffect(() => {
+    if (!isSpeechRecognitionSupported) {
+      console.warn("Speech recognition not supported by this browser.");
+      return;
+    }
+
+    // FIX: Cast window to `any` to access vendor-prefixed SpeechRecognition API which is not part of the standard window type.
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'or-IN';
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+        setInput(finalTranscript + interimTranscript);
+    };
+
+    recognition.onend = () => {
+        setIsRecording(false);
+    };
+    
+    recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsRecording(false);
+    }
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
+    };
+  }, [isSpeechRecognitionSupported]);
+
+  useEffect(() => {
+    return () => {
+      if (isSpeechSynthesisSupported) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [isSpeechSynthesisSupported]);
+
+
+  const handleToggleRecording = () => {
+    if (!recognitionRef.current) return;
+
+    if (isRecording) {
+        recognitionRef.current.stop();
+    } else {
+        setInput(''); 
+        recognitionRef.current.start();
+    }
+    setIsRecording(!isRecording);
+  };
+
+  const handleSpeak = (textToSpeak: string, messageId: string) => {
+      if (!isSpeechSynthesisSupported) return;
+
+      if (speakingMessageId === messageId) {
+          window.speechSynthesis.cancel();
+          setSpeakingMessageId(null);
+          return;
+      }
+      
+      window.speechSynthesis.cancel(); 
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = 'or-IN';
+      utterance.rate = 0.9;
+      utterance.onend = () => {
+          setSpeakingMessageId(null);
+      };
+      utterance.onerror = (e) => {
+          console.error('Speech synthesis error', e);
+          setSpeakingMessageId(null);
+      };
+
+      setSpeakingMessageId(messageId);
+      window.speechSynthesis.speak(utterance);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -133,6 +213,14 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     e.preventDefault();
     if ((!input.trim() && !file) || isLoading) return;
 
+    if (isRecording) {
+      recognitionRef.current?.stop();
+    }
+    if (speakingMessageId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+    }
+    
     setIsLoading(true);
     setFileError(null);
 
@@ -221,7 +309,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
                     ସ
                   </div>
                 )}
-              <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md'}`}>
+              <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white' : 'bg-slate-800 text-slate-200'}`}>
                 {msg.file && renderFilePreview(msg.file)}
                 <div className={`text-[15px] ${msg.file ? 'mt-2' : ''}`} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.625' }}>
                   {msg.text}
@@ -232,7 +320,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
               </div>
               {msg.sender === 'user' && (
                   <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center font-bold text-white text-lg">
-                    ଆ
+                    {currentUser ? currentUser.charAt(0).toUpperCase() : 'ଆ'}
                   </div>
                 )}
             </div>
@@ -244,6 +332,15 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
                     <button onClick={() => handleFeedback(msg.id, 'disliked')} disabled={!!msg.feedback} className="disabled:opacity-50">
                         <ThumbsDownIcon className={msg.feedback === 'disliked' ? 'text-red-400' : 'text-slate-500 hover:text-white transition-colors'} />
                     </button>
+                     {isSpeechSynthesisSupported && (
+                        <button
+                          onClick={() => handleSpeak(msg.text, msg.id)}
+                          className="text-slate-500 hover:text-white transition-colors"
+                          aria-label="Read message aloud"
+                        >
+                            <SpeakerIcon className={speakingMessageId === msg.id ? 'text-cyan-400 animate-pulse' : 'text-slate-500 hover:text-white transition-colors'} />
+                        </button>
+                    )}
                     <button 
                       onClick={() => handleCopy(msg.text, msg.id)} 
                       className="text-slate-500 hover:text-white transition-colors flex items-center"
@@ -305,37 +402,52 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
             </button>
           </div>
         )}
-        <form onSubmit={handleSubmit} className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-slate-400 p-3 rounded-full hover:bg-slate-700 hover:text-cyan-400 transition-colors flex-shrink-0"
-            disabled={isLoading}
-          >
-            <PaperclipIcon />
-          </button>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="ଏକ ଫାଇଲ୍, ଭିଡିଓ ଲିଙ୍କ୍, କିମ୍ବା ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..."
-            className="flex-grow bg-slate-800 text-white placeholder-slate-400 rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition"
-            disabled={isLoading}
-          />
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
-            accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || (!input.trim() && !file)}
-            className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-3 rounded-full hover:opacity-90 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-70 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
-          >
-            <SendIcon />
-          </button>
+        <form onSubmit={handleSubmit} className="flex items-center">
+            <div className="flex-grow flex items-center bg-slate-800 rounded-full focus-within:ring-2 focus-within:ring-cyan-400 transition">
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-slate-400 p-3 rounded-full hover:text-cyan-400 transition-colors flex-shrink-0 ml-1"
+                    disabled={isLoading}
+                    aria-label="Attach file"
+                >
+                    <PaperclipIcon />
+                </button>
+                {isSpeechRecognitionSupported && (
+                    <button
+                    type="button"
+                    onClick={handleToggleRecording}
+                    className={`text-slate-400 p-3 rounded-full hover:text-cyan-400 transition-colors flex-shrink-0 ${isRecording ? 'bg-red-500/20 text-red-400 animate-pulse' : ''}`}
+                    disabled={isLoading}
+                    aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+                    >
+                    <MicrophoneIcon />
+                    </button>
+                )}
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="ଏକ ଫାଇଲ୍, ଭିଡିଓ ଲିଙ୍କ୍, କିମ୍ବା ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..."
+                    className="flex-grow bg-transparent text-white placeholder-slate-400 py-3 px-2 focus:outline-none"
+                    disabled={isLoading}
+                />
+                <button
+                    type="submit"
+                    disabled={isLoading || (!input.trim() && !file)}
+                    className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-3 rounded-full hover:opacity-90 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-70 disabled:cursor-not-allowed transition-opacity flex-shrink-0 mr-1"
+                    aria-label="Send message"
+                >
+                    <SendIcon />
+                </button>
+            </div>
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"
+            />
         </form>
       </div>
     </div>
