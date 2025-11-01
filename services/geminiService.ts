@@ -16,6 +16,55 @@ Default to standard Odia, but understand regional dialects like Sambalpuri or Ko
 When a file is uploaded, analyze its content thoroughly. If it contains Odia text or cultural elements, prioritize them in your analysis and response.
 Be helpful, friendly, and deeply knowledgeable. Your thinking process should be efficient to provide answers as quickly as possible without sacrificing quality or completeness. Provide comprehensive and detailed responses to fulfill user requests thoroughly. Do not artificially shorten your answers.`;
 
+const handleGeminiError = (error: unknown, context: string, details?: { file?: any }): string => {
+  console.error(`Error in ${context}:`, error);
+
+  const tryAgain = 'ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।';
+  let userMessage = `କ୍ଷମା କରନ୍ତୁ, ଏକ ଅଜ୍ଞାତ ତ୍ରୁଟି ଘଟିଛି।`;
+
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes('api key not valid')) {
+      userMessage = 'ଆପଣଙ୍କ API କି ବୈଧ ନୁହେଁ। ଦୟାକରି ଆପଣଙ୍କର ସେଟିଂସ୍ ଯାଞ୍ଚ କରନ୍ତୁ।';
+      return userMessage; // Don't add 'try again' for this
+    }
+    if (error.message.includes('quota')) {
+      userMessage = 'ଆପଣ ଆପଣଙ୍କର API କୋଟା ଅତିକ୍ରମ କରିଛନ୍ତି।';
+      return userMessage;
+    }
+    if (error.message.includes('429')) { // Too Many Requests
+      userMessage = 'ବହୁତ ଅଧିକ ଅନୁରୋଧ।';
+    } else if (error.message.toLowerCase().includes('deadline exceeded')) {
+        userMessage = 'ସଂଯୋଗ ସମୟ ସମାପ୍ତ ହୋଇଗଲା।';
+    } else {
+        // Use context-specific generic messages if no specific error is matched
+        switch (context) {
+            case 'runChat':
+              userMessage = details?.file
+                ? 'କ୍ଷମା କରନ୍ତୁ, ଆପଣଙ୍କ ଫାଇଲ୍ ପ୍ରକ୍ରିୟାକରଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
+                : 'କ୍ଷମା କରନ୍ତୁ, ଚାଟ୍ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+              break;
+            case 'runSearch':
+              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ସନ୍ଧାନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+              break;
+            case 'runComplexQuery':
+              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଏକ ଜଟିଳ ତ୍ରୁଟି ଘଟିଛି।';
+              break;
+            case 'analyzeVideoUrl':
+              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଭିଡିଓ ବିଶ୍ଳେଷଣ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+              break;
+            case 'generateImage':
+              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି / ସମ୍ପାଦନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+              break;
+            default:
+              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+        }
+    }
+  }
+
+  return `${userMessage} ${tryAgain}`;
+};
+
+
 export const runChat = async (
   history: ChatMessage[],
   prompt: string,
@@ -66,12 +115,7 @@ export const runChat = async (
     return fullResponse;
 
   } catch (error) {
-    console.error('Error in runChat:', error);
-    const tryAgain = 'ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।';
-    let errorMessage = `କ୍ଷମା କରନ୍ତୁ, ଏକ ତ୍ରୁଟି ଘଟିଛି। ${tryAgain}`;
-    if (file) {
-      errorMessage = `କ୍ଷମା କରନ୍ତୁ, ଆପଣଙ୍କ ଫାଇଲ୍ ପ୍ରକ୍ରିୟାକରଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି। ${tryAgain}`;
-    }
+    const errorMessage = handleGeminiError(error, 'runChat', { file });
     onChunk(errorMessage);
     return errorMessage;
   }
@@ -119,8 +163,7 @@ export const runSearch = async (
 
     return { text: fullText, groundingChunks };
   } catch (error) {
-    console.error('Error in runSearch:', error);
-    const errorMessage = 'କ୍ଷମା କରନ୍ତୁ, ସନ୍ଧାନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+    const errorMessage = handleGeminiError(error, 'runSearch');
     onChunk(errorMessage);
     return { text: errorMessage, groundingChunks: [] };
   }
@@ -157,8 +200,7 @@ export const runComplexQuery = async (
     }
     return fullResponse;
   } catch (error) {
-    console.error('Error in runComplexQuery:', error);
-    const errorMessage = 'କ୍ଷମା କରନ୍ତୁ, ଏକ ଜଟିଳ ତ୍ରୁଟି ଘଟିଛି।';
+    const errorMessage = handleGeminiError(error, 'runComplexQuery');
     onChunk(errorMessage);
     return errorMessage;
   }
@@ -197,8 +239,7 @@ export const analyzeVideoUrl = async (
     }
     return fullResponse;
   } catch (error) {
-    console.error('Error in analyzeVideoUrl:', error);
-    const errorMessage = 'କ୍ଷମା କରନ୍ତୁ, ଭିଡିଓ ବିଶ୍ଳେଷଣ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
+    const errorMessage = handleGeminiError(error, 'analyzeVideoUrl');
     onChunk(errorMessage);
     return errorMessage;
   }
@@ -257,7 +298,7 @@ export const generateImage = async (
         throw new Error('No image data received during generation');
     }
   } catch (error) {
-    console.error('Error in generateImage/editImage:', error);
-    throw new Error('କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି / ସମ୍ପାଦନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।');
+    const errorMessage = handleGeminiError(error, 'generateImage');
+    throw new Error(errorMessage);
   }
 };
