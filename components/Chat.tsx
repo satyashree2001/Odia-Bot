@@ -2,7 +2,7 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { runChat, analyzeVideoUrl } from '../services/geminiService';
+import { runChat } from '../services/geminiService';
 import { SendIcon, SaveIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon } from './icons';
 
 interface ChatProps {
@@ -124,8 +124,8 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     setIsLoading(true);
     setFileError(null);
 
-    const isVideoUrl = !file && isValidUrl(input.trim());
-
+    const historyForApi = [...messages];
+    
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       sender: 'user',
@@ -171,12 +171,7 @@ const Chat: React.FC<ChatProps> = ({ currentUser }) => {
         });
       };
       
-      let finalBotResponse = '';
-      if (isVideoUrl) {
-          finalBotResponse = await analyzeVideoUrl(currentInput.trim(), onChunk);
-      } else {
-          finalBotResponse = await runChat(currentInput, onChunk, fileData);
-      }
+      const finalBotResponse = await runChat(historyForApi, currentInput, onChunk, fileData);
       
       setMessages(prev => prev.map(m => m.id === botMessagePlaceholder.id ? {...m, text: finalBotResponse} : m));
 

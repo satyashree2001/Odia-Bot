@@ -28,7 +28,8 @@ const VideoAnalyzer: React.FC = () => {
       const onChunk = (chunk: string) => {
         setSummary(prev => (prev || '') + chunk);
       };
-      await analyzeVideoUrl(url, onChunk);
+      // FIX: Added an empty array for the history argument as analyzeVideoUrl expects it.
+      await analyzeVideoUrl([], url, onChunk);
     } catch (error) {
        // Error is streamed into the summary box by the service
     } finally {

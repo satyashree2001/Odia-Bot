@@ -1,4 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, Modality } from '@google/genai';
+import { type ChatMessage } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -16,28 +17,39 @@ When a file is uploaded, analyze its content thoroughly. If it contains Odia tex
 Be helpful, friendly, and deeply knowledgeable. Your thinking process should be efficient to provide answers as quickly as possible without sacrificing quality or completeness. Provide comprehensive and detailed responses to fulfill user requests thoroughly. Do not artificially shorten your answers.`;
 
 export const runChat = async (
+  history: ChatMessage[],
   prompt: string,
   onChunk: (chunk: string) => void,
   file?: { data: string; mimeType: string }
 ): Promise<string> => {
   try {
-    const textPart = { text: prompt };
-    const requestParts = [];
+    const contents = history
+      .filter(msg => msg.text || msg.file) // Exclude empty placeholders or initial greetings without text
+      .map(msg => {
+          // NOTE: file data from history isn't available as it's not stored, only text is used.
+          const parts = [{ text: msg.text }];
+          return {
+              role: msg.sender === 'user' ? 'user' : 'model',
+              parts: parts
+          };
+      });
 
+    const userParts: any[] = [{ text: prompt }];
     if (file) {
-      const filePart = {
+      userParts.unshift({
         inlineData: {
           data: file.data,
           mimeType: file.mimeType,
         },
-      };
-      requestParts.push(filePart);
+      });
     }
-    requestParts.push(textPart);
+    contents.push({ role: 'user', parts: userParts });
+
 
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-pro',
-      contents: { parts: requestParts },
+      // @ts-ignore
+      contents: contents,
       config: {
         systemInstruction: satyashreeSystemInstruction,
       },
@@ -104,13 +116,20 @@ export const runSearch = async (
 };
 
 export const runComplexQuery = async (
+  history: { role: 'user' | 'model'; text: string }[],
   prompt: string,
   onChunk: (chunk: string) => void
 ): Promise<string> => {
   try {
+     const contents = history.map(turn => ({
+      role: turn.role,
+      parts: [{ text: turn.text }],
+    }));
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-pro',
-      contents: prompt,
+      contents: contents,
       config: {
         systemInstruction: satyashreeSystemInstruction,
         thinkingConfig: { thinkingBudget: 32768 },
@@ -135,15 +154,22 @@ export const runComplexQuery = async (
 };
 
 export const analyzeVideoUrl = async (
+  history: { role: 'user' | 'model'; text: string }[],
   url: string,
   onChunk: (chunk: string) => void
 ): Promise<string> => {
   try {
     const prompt = `Please provide a detailed summary in the Odia language for the video at the following URL. Analyze its content, focusing on the main topics, key points, and overall conclusion. URL: ${url}`;
     
+    const contents = history.map(turn => ({
+      role: turn.role,
+      parts: [{ text: turn.text }],
+    }));
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-pro',
-      contents: prompt,
+      contents: contents,
       config: {
         systemInstruction: satyashreeSystemInstruction,
         tools: [{ googleSearch: {} }],
