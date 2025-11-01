@@ -19,8 +19,8 @@ export const MicrophoneIcon: React.FC = () => (
     </svg>
 );
 
-export const SparklesIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+export const SparklesIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className}`} viewBox="0 0 24 24" fill="currentColor">
         <path d="m12 0 3.09 8.91L24 12l-8.91 3.09L12 24l-3.09-8.91L0 12l8.91-3.09z"/>
     </svg>
 );
@@ -126,5 +126,11 @@ export const MapPinIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+);
+
+export const MindIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className}`} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2a4 4 0 0 0-4 4c0 1.15.48 2.2 1.25 2.96V10c0 .9.53 1.68 1.29 2.06-.3.12-.59.27-.86.44-.92.57-1.5 1.6-1.5 2.67V16c0 .92.44 1.74 1.15 2.26L9 20v2h6v-2l-.35-1.74c.7-.52 1.15-1.34 1.15-2.26v-.83c0-1.07-.58-2.1-1.5-2.67-.27-.17-.56-.32-.86-.44.76-.38 1.29-1.16 1.29-2.06V8.96A3.97 3.97 0 0 0 16 6a4 4 0 0 0-4-4m0 2c1.11 0 2 .89 2 2s-.89 2-2 2-2-.89-2-2 .89-2 2-2m-1 6h2v1.5h-2zm-2 4.17c0-.53.21-1.02.57-1.35.37-.34.88-.52 1.43-.52h2c.55 0 1.06.18 1.43.52.36.33.57.82.57 1.35V14H9z"/>
     </svg>
 );

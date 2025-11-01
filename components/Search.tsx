@@ -29,13 +29,15 @@ const searchSuggestions = [
   'କୃତ୍ରିମ ବୁଦ୍ଧିମତ୍ତା (AI) କ\'ଣ?',
 ];
 
+type LocationStatus = 'loading' | 'success' | 'denied' | 'unavailable' | 'timeout';
+
 const Search: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [response, setResponse] = useState<{ text: string; chunks: GroundingChunk[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('loading');
   const responseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,17 +47,35 @@ const Search: React.FC = () => {
   }, [response?.text]);
 
   useEffect(() => {
+     if (!navigator.geolocation) {
+        setLocationStatus('unavailable');
+        return;
+    }
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocation({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        setLocationError(null);
+        setLocationStatus('success');
       },
       (error) => {
         console.warn(`Geolocation error: ${error.message}`);
-        setLocationError('ସ୍ଥାନ ସୂଚନା ପାଇବାରେ ବିଫଳ। ସ୍ଥାନୀୟ ଫଳାଫଳ ପ୍ରଭାବିତ ହୋଇପାରେ।');
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                setLocationStatus('denied');
+                break;
+            case error.POSITION_UNAVAILABLE:
+                setLocationStatus('unavailable');
+                break;
+            case error.TIMEOUT:
+                setLocationStatus('timeout');
+                break;
+            default:
+                setLocationStatus('unavailable');
+                break;
+        }
       }
     );
 
@@ -101,6 +121,28 @@ const Search: React.FC = () => {
     performSearch(suggestion);
   };
 
+  const renderLocationStatus = () => {
+    switch (locationStatus) {
+      case 'denied':
+        return (
+          <p className="text-xs text-amber-400/90 text-center mt-2">
+            ସ୍ଥାନୀୟ ଫଳାଫଳ ପାଇଁ, ଦୟାକରି ଆପଣଙ୍କ ବ୍ରାଉଜର୍ ସେଟିଂସରେ ସ୍ଥାନ ଅନୁମତି ସକ୍ଷମ କରନ୍ତୁ।
+          </p>
+        );
+      case 'unavailable':
+      case 'timeout':
+        return (
+          <p className="text-xs text-slate-400 text-center mt-2">
+            ସ୍ଥାନ ସୂଚନା ପାଇବାରେ ବିଫଳ। ସ୍ଥାନୀୟ ଫଳାଫଳ ପ୍ରଭାବିତ ହୋଇପାରେ।
+          </p>
+        );
+      case 'loading':
+      case 'success':
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-full flex-grow bg-slate-900/50 rounded-xl shadow-2xl border border-slate-700/50">
       <div className="flex-grow p-4 sm:p-6 overflow-y-auto">
@@ -121,48 +163,40 @@ const Search: React.FC = () => {
            </div>
         )}
         {response && (
-          <div ref={responseRef} className="bg-slate-800/60 p-5 rounded-lg border border-slate-700">
-            <p className="whitespace-pre-wrap leading-relaxed">{response.text}</p>
+          <div ref={responseRef} className="space-y-6">
+            <div className="bg-slate-800/60 p-5 rounded-lg border border-slate-700">
+              <p className="whitespace-pre-wrap leading-relaxed">{response.text}</p>
+            </div>
             {response.chunks.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-slate-700">
-                <h3 className="font-bold text-cyan-400 mb-3">ଉତ୍ସଗୁଡ଼ିକ:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <h3 className="font-bold text-cyan-400 mb-3 text-lg">ଉତ୍ସଗୁଡ଼ିକ:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {response.chunks.map((chunk, index) => {
-                    if (chunk.web) {
-                      return (
-                         <a
-                            key={`web-${index}`}
-                            href={chunk.web.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/50 transition-all duration-200 hover:scale-[1.02] hover:border-cyan-500/50 flex items-start gap-3 border border-slate-700 group"
-                          >
-                            <div className="flex-shrink-0 pt-1 text-slate-400 group-hover:text-cyan-400"><LinkIcon /></div>
-                            <div>
-                              <p className="font-semibold text-cyan-400 break-words group-hover:underline">{chunk.web.title || 'Untitled Source'}</p>
-                              <p className="text-xs text-slate-500 truncate">{chunk.web.uri}</p>
-                            </div>
-                          </a>
-                      );
-                    }
-                    if (chunk.maps) {
-                      return (
-                         <a
-                            key={`map-${index}`}
-                            href={chunk.maps.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/50 transition-all duration-200 hover:scale-[1.02] hover:border-cyan-500/50 flex items-start gap-3 border border-slate-700 group"
-                          >
-                            <div className="flex-shrink-0 pt-1 text-slate-400 group-hover:text-cyan-400"><MapPinIcon /></div>
-                            <div>
-                              <p className="font-semibold text-cyan-400 break-words group-hover:underline">{chunk.maps.title || 'Untitled Place'}</p>
-                              <p className="text-xs text-slate-500 truncate">{chunk.maps.uri}</p>
-                            </div>
-                          </a>
-                      );
-                    }
-                    return null;
+                    const source = chunk.web || chunk.maps;
+                    if (!source) return null;
+                    const isWeb = !!chunk.web;
+                    
+                    return (
+                      <a
+                        key={`${isWeb ? 'web' : 'map'}-${index}`}
+                        href={source.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-4 rounded-xl border border-slate-700 bg-slate-800/50 transition-all duration-300 ease-in-out hover:border-cyan-500/40 hover:bg-slate-800 hover:shadow-cyan-500/10 hover:shadow-lg hover:-translate-y-1"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="flex-shrink-0 text-cyan-400">
+                            {isWeb ? <LinkIcon /> : <MapPinIcon />}
+                          </div>
+                          <h4 className="font-bold text-base text-cyan-300 break-words line-clamp-2">
+                            {source.title || 'Untitled Source'}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-slate-400 break-all opacity-75">
+                          {source.uri}
+                        </p>
+                      </a>
+                    );
                   })}
                 </div>
               </div>
@@ -188,7 +222,7 @@ const Search: React.FC = () => {
             <SendIcon />
           </button>
         </form>
-         {locationError && <p className="text-xs text-red-400 text-center mt-2">{locationError}</p>}
+         {renderLocationStatus()}
       </div>
     </div>
   );

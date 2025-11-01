@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { runComplexQuery, analyzeVideoUrl } from '../services/geminiService';
-import { SparklesIcon } from './icons';
+import { MindIcon } from './icons';
 
 interface Turn {
   role: 'user' | 'model';
@@ -82,7 +83,7 @@ const ThinkingMode: React.FC = () => {
       <div className="flex-grow p-4 sm:p-6 overflow-y-auto space-y-4">
         {conversation.length === 0 && !isLoading && (
             <div className="flex flex-col justify-center items-center h-full text-center text-slate-400">
-                <SparklesIcon />
+                <MindIcon />
                 <p className="mt-2">ଜଟିଳ କାର୍ଯ୍ୟଗୁଡ଼ିକ ପାଇଁ ଏହି ମୋଡ୍ ବ୍ୟବହାର କରନ୍ତୁ।</p>
                 <p className="text-sm mt-1">ଆପଣ ବିଶ୍ଳେଷଣ ପାଇଁ ଏକ ଭିଡିଓ URL ମଧ୍ୟ ପେଷ୍ଟ କରିପାରିବେ।</p>
             </div>
@@ -92,13 +93,13 @@ const ThinkingMode: React.FC = () => {
             <div className={`flex items-end gap-3 ${turn.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                {turn.role === 'model' && (
                   <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center text-cyan-400">
-                    <SparklesIcon />
+                    <MindIcon />
                   </div>
                 )}
               <div className={`max-w-xl p-4 rounded-2xl shadow-md ${turn.role === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md'}`}>
                 {turn.role === 'model' && isLoading && index === conversation.length - 1 && !turn.text ? (
                      <div className="flex items-center justify-center p-2">
-                        <SparklesIcon className="h-8 w-8 text-cyan-400 sparkle-animation" />
+                        <MindIcon className="h-8 w-8 text-cyan-400 sparkle-animation" />
                     </div>
                 ) : (
                     <p className="text-[15px] whitespace-pre-wrap" style={{lineHeight: '1.625'}}>{turn.text}</p>
@@ -128,7 +129,7 @@ const ThinkingMode: React.FC = () => {
             disabled={isLoading || !prompt.trim()}
             className="w-full mt-2 bg-cyan-500 text-white p-3 rounded-lg hover:bg-cyan-600 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
           >
-            <SparklesIcon />
+            <MindIcon />
             <span>ବିଶ୍ଳେଷଣ ପାଇଁ ପଠାନ୍ତୁ</span>
           </button>
         </form>

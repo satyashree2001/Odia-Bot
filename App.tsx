@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChatIcon, SearchIcon, MicrophoneIcon, SparklesIcon, CameraIcon, UserIcon, LogoutIcon } from './components/icons';
+import { ChatIcon, SearchIcon, MicrophoneIcon, CameraIcon, UserIcon, LogoutIcon, MindIcon } from './components/icons';
 import Chat from './components/Chat';
 import Search from './components/Search';
 import VoiceChat from './components/VoiceChat';
@@ -49,7 +49,7 @@ const App: React.FC = () => {
     { id: 'search', name: 'ଖୋଜନ୍ତୁ', icon: <SearchIcon /> },
     { id: 'imageGeneration', name: 'ଚିତ୍ର ସୃଷ୍ଟି', icon: <CameraIcon /> },
     { id: 'voice', name: 'କଥାବାର୍ତ୍ତା', icon: <MicrophoneIcon /> },
-    { id: 'thinking', name: 'ଗଭୀର ଚିନ୍ତା', icon: <SparklesIcon /> },
+    { id: 'thinking', name: 'ଗଭୀର ଚିନ୍ତା', icon: <MindIcon /> },
   ];
 
   const renderContent = () => {

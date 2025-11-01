@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { ChatIcon, SearchIcon, MicrophoneIcon, SparklesIcon, CameraIcon } from './icons';
+import { ChatIcon, SearchIcon, MicrophoneIcon, CameraIcon, MindIcon } from './icons';
 
 interface WelcomeProps {
   onDismiss: () => void;
@@ -11,7 +12,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onDismiss }) => {
     { name: 'ବାସ୍ତବ-ସମୟ ଖୋଜ', icon: <SearchIcon /> },
     { name: 'ଚିତ୍ର ସୃଷ୍ଟି', icon: <CameraIcon /> },
     { name: 'ଭଏସ୍ ଚାଟ୍', icon: <MicrophoneIcon /> },
-    { name: 'ଜଟିଳ ଚିନ୍ତା', icon: <SparklesIcon /> },
+    { name: 'ଜଟିଳ ଚିନ୍ତା', icon: <MindIcon /> },
   ];
 
   return (
