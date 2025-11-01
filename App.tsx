@@ -84,8 +84,8 @@ const App: React.FC = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
                       activeTab === tab.id
-                        ? 'bg-slate-700 text-cyan-400 font-semibold'
-                        : 'text-slate-300 hover:bg-slate-700/50 hover:text-cyan-400'
+                        ? 'bg-cyan-500/10 text-cyan-300 font-semibold border border-cyan-500/20'
+                        : 'text-slate-400 hover:bg-slate-700/50 hover:text-cyan-400'
                     }`}
                   >
                     {tab.icon}
@@ -127,7 +127,7 @@ const App: React.FC = () => {
                   className={`flex flex-col items-center justify-center p-1 rounded-lg transition-all duration-200 ${
                     activeTab === tab.id
                       ? 'bg-cyan-500 text-white'
-                      : 'text-slate-300 hover:bg-slate-700'
+                      : 'text-slate-400 hover:bg-slate-700'
                   }`}
                 >
                   {tab.icon}
