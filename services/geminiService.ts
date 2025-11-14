@@ -1,6 +1,7 @@
+
 // Fix: Add imports for GenerateContentResponse, Modality, and GroundingChunk.
-import { GoogleGenAI, GenerateContentResponse, Modality } from '@google/genai';
-import { type ChatMessage, type GroundingChunk } from '../types';
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import { type ChatMessage, type GroundingChunk, type Turn } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -66,7 +67,8 @@ export const runChat = async (
   history: ChatMessage[],
   prompt: string,
   onChunk: (payload: { chunk: string; mode?: 'fast' | 'expert' }) => void,
-  file?: { data: string; mimeType: string }
+  file?: { data: string; mimeType: string },
+  signal?: AbortSignal
 ): Promise<{ groundingChunks: GroundingChunk[] }> => {
   try {
     let mode: 'fast' | 'expert' = 'expert';
@@ -127,7 +129,7 @@ Query: "${prompt}"`;
       // @ts-ignore
       contents: contents,
       config: config,
-    });
+    }, { signal });
 
     let isFirstChunk = true;
     let finalResponse: GenerateContentResponse | null = null;
@@ -149,40 +151,87 @@ Query: "${prompt}"`;
 
     return { groundingChunks: groundingChunks as GroundingChunk[] };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+        onChunk({ chunk: `\n\n*ଜେନେରେସନ୍ ବନ୍ଦ ହେଲା।*` });
+        console.log('Stream generation aborted.');
+        return { groundingChunks: [] };
+    }
     const errorMessage = handleGeminiError(error, 'runChat', { file });
     onChunk({ chunk: errorMessage });
     return { groundingChunks: [] };
   }
 };
 
-// Fix: Implement and export runSearch function.
+const isValidUrl = (text: string): boolean => {
+    if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        return false;
+    }
+    try {
+        new URL(text);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
+
 export const runSearch = async (
+  history: Turn[],
   prompt: string,
   onChunk: (chunk: string) => void,
   location?: { latitude: number; longitude: number }
 ): Promise<{ text: string; groundingChunks: GroundingChunk[] }> => {
   try {
-    const tools: any[] = [{ googleSearch: {} }];
-    const toolConfig: any = {};
+    const isVideoUrl = isValidUrl(prompt);
 
-    if (location) {
-      tools.push({ googleMaps: {} });
-      toolConfig.retrievalConfig = {
-        latLng: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-      };
+    const historyForApi = history.map(turn => ({
+      role: turn.role,
+      parts: [{ text: turn.text }],
+    }));
+    historyForApi.push({ role: 'user', parts: [{ text: prompt }] });
+
+    let modelName = 'gemini-2.5-flash';
+    let config: any = { systemInstruction: satyashreeSystemInstruction };
+
+    if (isVideoUrl) {
+      modelName = 'gemini-2.5-pro';
+      config.thinkingConfig = { thinkingBudget: 32768 };
+    } else {
+      const classifierPrompt = `Classify the following user query as 'simple_search' or 'complex_query'. 
+'simple_search' queries are for facts, current events, or information that can be looked up. 
+'complex_query' queries require reasoning, creativity, in-depth explanation, or problem-solving.
+Respond with only the word 'simple_search' or 'complex_query'.
+Query: "${prompt}"`;
+      
+      const classificationResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: classifierPrompt,
+      });
+      const classification = classificationResponse.text.trim().toLowerCase();
+      
+      if (classification === 'complex_query') {
+        modelName = 'gemini-2.5-pro';
+        config.thinkingConfig = { thinkingBudget: 32768 };
+      } else { // 'simple_search'
+        const tools: any[] = [{ googleSearch: {} }];
+        const toolConfig: any = {};
+        if (location) {
+          tools.push({ googleMaps: {} });
+          toolConfig.retrievalConfig = {
+            latLng: { latitude: location.latitude, longitude: location.longitude },
+          };
+        }
+        config.tools = tools;
+        if (Object.keys(toolConfig).length > 0) {
+            config.toolConfig = toolConfig;
+        }
+      }
     }
-
+    
     const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction: satyashreeSystemInstruction,
-        tools: tools,
-        toolConfig: Object.keys(toolConfig).length > 0 ? toolConfig : undefined,
-      },
+      model: modelName,
+      // @ts-ignore
+      contents: historyForApi,
+      config: config,
     });
 
     let fullText = '';
@@ -202,135 +251,10 @@ export const runSearch = async (
     return { text: fullText, groundingChunks: groundingChunks as GroundingChunk[] };
 
   } catch (error) {
-    const errorMessage = handleGeminiError(error, 'runSearch');
+    const context = isValidUrl(prompt) ? 'analyzeVideoUrl' : 'runSearch';
+    const errorMessage = handleGeminiError(error, context);
     onChunk(errorMessage);
     return { text: errorMessage, groundingChunks: [] };
-  }
-};
-
-interface Turn {
-  role: 'user' | 'model';
-  text: string;
-}
-
-// Fix: Implement and export runComplexQuery function.
-export const runComplexQuery = async (
-  history: Turn[],
-  prompt: string,
-  onChunk: (chunk: string) => void
-): Promise<string> => {
-  try {
-    const contents = history.map(turn => ({
-      role: turn.role,
-      parts: [{ text: turn.text }],
-    }));
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-pro',
-      // @ts-ignore
-      contents: contents,
-      config: {
-        systemInstruction: satyashreeSystemInstruction,
-        thinkingConfig: { thinkingBudget: 32768 },
-      },
-    });
-
-    let fullText = '';
-    for await (const chunk of responseStream) {
-      const chunkText = chunk.text;
-      if (chunkText) {
-        fullText += chunkText;
-        onChunk(chunkText);
-      }
-    }
-    return fullText;
-  } catch (error) {
-    const errorMessage = handleGeminiError(error, 'runComplexQuery');
-    onChunk(errorMessage);
-    return errorMessage;
-  }
-};
-
-// Fix: Implement and export analyzeVideoUrl function.
-export const analyzeVideoUrl = async (
-  history: Turn[],
-  videoUrl: string,
-  onChunk: (chunk: string) => void
-): Promise<string> => {
-  try {
-    const prompt = `Please analyze the content of the video at this URL and provide a detailed summary in Odia: ${videoUrl}`;
-
-    const contents = history.map(turn => ({
-      role: turn.role,
-      parts: [{ text: turn.text }],
-    }));
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-    
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-pro',
-      // @ts-ignore
-      contents: contents,
-      config: {
-        systemInstruction: satyashreeSystemInstruction,
-        thinkingConfig: { thinkingBudget: 32768 },
-      },
-    });
-
-    let fullText = '';
-    for await (const chunk of responseStream) {
-      const chunkText = chunk.text;
-      if (chunkText) {
-        fullText += chunkText;
-        onChunk(chunkText);
-      }
-    }
-    return fullText;
-  } catch (error) {
-    const errorMessage = handleGeminiError(error, 'analyzeVideoUrl');
-    onChunk(errorMessage);
-    return errorMessage;
-  }
-};
-
-interface ImagePayload {
-    data: string;
-    mimeType: string;
-}
-
-// Fix: Implement and export generateImage function.
-export const generateImage = async (
-  prompt: string,
-  images: ImagePayload[]
-): Promise<string> => {
-  try {
-    const textPart = { text: prompt };
-    const imageParts = images.map(img => ({
-      inlineData: {
-        data: img.data,
-        mimeType: img.mimeType,
-      },
-    }));
-
-    const parts = [...imageParts, textPart];
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: parts },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
-    });
-    
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
-    }
-
-    throw new Error('No image was generated. The model did not return an image.');
-  } catch (error) {
-    throw new Error(handleGeminiError(error, 'generateImage'));
   }
 };
 

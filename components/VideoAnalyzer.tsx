@@ -1,6 +1,7 @@
 import React from 'react';
 import { useState } from 'react';
-import { analyzeVideoUrl } from '../services/geminiService';
+// Fix: Renamed 'analyzeVideoUrl' to 'runSearch' to match the exported function in geminiService.
+import { runSearch } from '../services/geminiService';
 import { SendIcon } from './icons';
 
 const VideoAnalyzer: React.FC = () => {
@@ -29,7 +30,8 @@ const VideoAnalyzer: React.FC = () => {
         setSummary(prev => (prev || '') + chunk);
       };
       // FIX: Added an empty array for the history argument as analyzeVideoUrl expects it.
-      await analyzeVideoUrl([], url, onChunk);
+      // Fix: Renamed 'analyzeVideoUrl' to 'runSearch' to use the correct available function.
+      await runSearch([], url, onChunk);
     } catch (error) {
        // Error is streamed into the summary box by the service
     } finally {

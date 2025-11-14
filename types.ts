@@ -42,3 +42,8 @@ export interface GroundingChunk {
     };
   };
 }
+
+export interface Turn {
+  role: 'user' | 'model';
+  text: string;
+}

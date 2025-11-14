@@ -1,11 +1,13 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { UserIcon, LogoutIcon, MenuIcon } from './components/icons';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon } from './components/icons';
 import Chat from './components/Chat';
 import AuthModal from './components/AuthModal';
 import Welcome from './components/Welcome';
 import HistorySidebar from './components/HistorySidebar';
+import Search from './components/Search';
+import VoiceChat from './components/VoiceChat';
 import { type ChatMessage, type Conversations, type Conversation } from './types';
 import { runChat, generateTitleForChat } from './services/geminiService';
 
@@ -15,16 +17,20 @@ const getInitialMessage = (): ChatMessage => ({
   text: 'ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?',
 });
 
+type Mode = 'chat' | 'search' | 'voice';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(!sessionStorage.getItem('satyashree_welcome_seen'));
   const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState(false);
+  const [activeMode, setActiveMode] = useState<Mode>('chat');
 
   // Chat State
   const [conversations, setConversations] = useState<Conversations>({});
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load user and conversations
   useEffect(() => {
@@ -88,11 +94,13 @@ const App: React.FC = () => {
     setConversations(prev => ({ ...prev, [newId]: newConversation }));
     setActiveConversationId(newId);
     if(isHistorySidebarOpen) setIsHistorySidebarOpen(false);
+    setActiveMode('chat');
   }, [currentUser, isHistorySidebarOpen]);
 
   const handleLoadConversation = (id: string) => {
     if (conversations[id]) {
       setActiveConversationId(id);
+      setActiveMode('chat');
       setIsHistorySidebarOpen(false);
     }
   };
@@ -142,6 +150,7 @@ const App: React.FC = () => {
     if (!activeConversationId || !conversations[activeConversationId]) return;
 
     setIsGenerating(true);
+    abortControllerRef.current = new AbortController();
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -173,6 +182,7 @@ const App: React.FC = () => {
     try {
       const onChunk = (payload: { chunk: string; mode?: 'fast' | 'expert' }) => {
         setConversations(prev => {
+            if (!activeConversationId) return prev;
             const currentConv = prev[activeConversationId];
             if (!currentConv) return prev;
             const currentMessages = currentConv.messages;
@@ -196,7 +206,7 @@ const App: React.FC = () => {
       };
       
       const filePayload = file ? { data: file.data, mimeType: file.mimeType } : undefined;
-      const result = await runChat(historyForApi, prompt, onChunk, filePayload);
+      const result = await runChat(historyForApi, prompt, onChunk, filePayload, abortControllerRef.current.signal);
 
       if (result.groundingChunks && result.groundingChunks.length > 0) {
         setConversations(prev => {
@@ -226,7 +236,12 @@ const App: React.FC = () => {
 
     } finally {
       setIsGenerating(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStopGeneration = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleDismissWelcome = () => {
@@ -253,6 +268,33 @@ const App: React.FC = () => {
   };
 
   const activeMessages = activeConversationId ? conversations[activeConversationId]?.messages : [];
+
+  const modes = [
+    { id: 'chat', name: 'ଗପସପ', icon: <ChatIcon /> },
+    { id: 'search', name: 'ଖୋଜ', icon: <SearchIcon /> },
+    { id: 'voice', name: 'ଭଏସ୍', icon: <MicrophoneIcon /> },
+  ];
+
+  const renderActiveMode = () => {
+    switch (activeMode) {
+      case 'chat':
+        return <Chat 
+                  key={activeConversationId} 
+                  messages={activeMessages || [getInitialMessage()]}
+                  currentUser={currentUser}
+                  isLoading={isGenerating}
+                  onSendMessage={handleSendMessage}
+                  onNewChat={handleNewChat}
+                  onStopGeneration={handleStopGeneration}
+               />;
+      case 'search':
+        return <Search />;
+      case 'voice':
+        return <VoiceChat />;
+      default:
+        return null;
+    }
+  }
 
   return (
     <>
@@ -301,17 +343,29 @@ const App: React.FC = () => {
             </div>
           </div>
         </header>
+
+         <nav className="container mx-auto px-4 pt-4">
+            <div className="bg-slate-800/50 backdrop-blur-sm p-2 rounded-full flex items-center justify-center gap-2 border border-slate-700/50">
+                {modes.map(mode => (
+                    <button
+                        key={mode.id}
+                        onClick={() => setActiveMode(mode.id as Mode)}
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-full transition-colors ${
+                            activeMode === mode.id 
+                                ? 'bg-cyan-500 text-white shadow-md' 
+                                : 'text-slate-300 hover:bg-slate-700/50'
+                        }`}
+                    >
+                        {mode.icon}
+                        <span className="hidden sm:inline">{mode.name}</span>
+                    </button>
+                ))}
+            </div>
+        </nav>
         
         <main className="flex-grow container mx-auto p-4 flex flex-col">
            <div className="fade-in flex-grow flex flex-col">
-            <Chat 
-                key={activeConversationId} 
-                messages={activeMessages || [getInitialMessage()]}
-                currentUser={currentUser}
-                isLoading={isGenerating}
-                onSendMessage={handleSendMessage}
-                onNewChat={handleNewChat}
-            />
+              {renderActiveMode()}
           </div>
         </main>
       </div>

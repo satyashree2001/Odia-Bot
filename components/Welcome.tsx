@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChatIcon, SearchIcon, MicrophoneIcon, CameraIcon, MindIcon } from './icons';
+import { ChatIcon, SearchIcon, MicrophoneIcon } from './icons';
 
 interface WelcomeProps {
   onDismiss: () => void;
@@ -9,10 +9,8 @@ interface WelcomeProps {
 const Welcome: React.FC<WelcomeProps> = ({ onDismiss }) => {
   const features = [
     { name: 'ବାର୍ତ୍ତାଳାପ ଏବଂ ଫାଇଲ୍ ବିଶ୍ଳେଷଣ', icon: <ChatIcon /> },
-    { name: 'ବାସ୍ତବ-ସମୟ ଖୋଜ', icon: <SearchIcon /> },
-    { name: 'ଚିତ୍ର ସୃଷ୍ଟି', icon: <CameraIcon /> },
+    { name: 'ଖୋଜ ଏବଂ ବିଶ୍ଳେଷଣ', icon: <SearchIcon /> },
     { name: 'ଭଏସ୍ ଚାଟ୍', icon: <MicrophoneIcon /> },
-    { name: 'ଜଟିଳ ଚିନ୍ତା', icon: <MindIcon /> },
   ];
 
   return (
@@ -21,7 +19,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onDismiss }) => {
         <h1 className="text-4xl font-bold text-cyan-400 mb-2">ସତ୍ୟଶ୍ରୀ ଆପଣଙ୍କୁ ସ୍ଵାଗତ ଜଣାଉଛି</h1>
         <p className="text-lg text-slate-300 mb-8">ଆପଣଙ୍କ ଓଡ଼ିଆ AI ସହାୟକ</p>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-left">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-left">
           {features.map((feature, index) => (
             <div key={index} className="bg-slate-700/50 p-4 rounded-lg flex items-center gap-3">
               <div className="text-cyan-400">{feature.icon}</div>

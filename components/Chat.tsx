@@ -3,7 +3,7 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon, PlusIcon, LinkIcon } from './icons';
+import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon, PlusIcon, LinkIcon, StopIcon } from './icons';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -11,6 +11,7 @@ interface ChatProps {
   isLoading: boolean;
   onSendMessage: (prompt: string, file?: { data: string; mimeType: string; name: string; previewUrl: string }) => Promise<void>;
   onNewChat: () => void;
+  onStopGeneration: () => void;
 }
 
 const MAX_FILE_SIZE_MB = 20;
@@ -32,7 +33,7 @@ const fileToBase64 = (file: File, onProgress: (progress: number) => void): Promi
     reader.onerror = (error) => reject(error);
   });
 
-const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMessage, onNewChat }) => {
+const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMessage, onNewChat, onStopGeneration }) => {
   const [input, setInput] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -215,15 +216,21 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
         <div className="flex-grow p-4 sm:p-6 space-y-4 overflow-y-auto">
           {messages.map((msg) => (
             <div key={msg.id}>
-              {msg.sender === 'bot' && msg.mode && msg.text && (
+              {msg.sender === 'bot' && (msg.mode || (isLoading && messages[messages.length-1].id === msg.id)) && (
                 <div className="flex justify-start ml-11 mb-1">
-                  <span className="text-xs text-cyan-400 opacity-80 px-2 py-0.5 bg-slate-700/60 rounded-md font-medium">
-                    {msg.mode === 'fast' ? '⚡️ Fast Mode' : '🧠 Expert Mode'}
-                  </span>
+                  {isLoading && messages[messages.length-1].id === msg.id ? (
+                      <span className="text-xs text-cyan-400 opacity-80 px-2 py-0.5 bg-slate-700/60 rounded-md font-medium animate-pulse">
+                          ଚିନ୍ତା କରୁଛି...
+                      </span>
+                  ) : msg.mode ? (
+                      <span className="text-xs text-cyan-400 opacity-80 px-2 py-0.5 bg-slate-700/60 rounded-md font-medium">
+                          {msg.mode === 'fast' ? '⚡️ Fast Mode' : '🧠 Expert Mode'}
+                      </span>
+                  ) : null}
                 </div>
               )}
               <div className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.sender === 'bot' && <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center font-bold text-cyan-400 text-lg">ସ</div>}
+                {msg.sender === 'bot' && <div className={`w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center font-bold text-cyan-400 text-lg ${isLoading && messages[messages.length - 1].id === msg.id ? 'animate-pulse-glow' : ''}`}>ସ</div>}
                 <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white' : 'bg-slate-800 text-slate-200'}`}>
                   {msg.file && renderFilePreview(msg.file)}
                   <div className={`text-[15px] ${msg.file ? 'mt-2' : ''}`} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.625' }}>
@@ -233,6 +240,17 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
                 </div>
                 {msg.sender === 'user' && <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center font-bold text-white text-lg">{currentUser ? currentUser.charAt(0).toUpperCase() : 'ଆ'}</div>}
               </div>
+              {msg.sender === 'bot' && isLoading && messages[messages.length - 1].id === msg.id && (
+                  <div className="flex items-center mt-2 ml-11">
+                      <button
+                          onClick={onStopGeneration}
+                          className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                      >
+                          <StopIcon />
+                          <span>ବନ୍ଦ କରନ୍ତୁ</span>
+                      </button>
+                  </div>
+              )}
               {msg.sender === 'bot' && !isLoading && msg.text && (
                   <div className="flex gap-2 items-center mt-2 ml-11">
                       <button onClick={() => handleFeedback(msg.id, 'liked')} disabled={!!feedbackMap[msg.id]} className="disabled:opacity-50"><ThumbsUpIcon className={feedbackMap[msg.id] === 'liked' ? 'text-cyan-400' : 'text-slate-500 hover:text-white'}/></button>
