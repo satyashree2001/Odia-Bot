@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 export const ChatIcon: React.FC = () => (
@@ -56,12 +57,6 @@ export const LogoutIcon: React.FC = () => (
     </svg>
 );
 
-export const SaveIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-    </svg>
-);
-
 export const PaperclipIcon: React.FC = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -89,6 +84,12 @@ export const ThumbsDownIcon: React.FC<{className?: string}> = ({className}) => (
 export const CopyIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+);
+
+export const SaveIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
 );
 
@@ -138,5 +139,23 @@ export const MapPinIcon: React.FC<{className?: string}> = ({className}) => (
 export const MindIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className}`} viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2a4 4 0 0 0-4 4c0 1.15.48 2.2 1.25 2.96V10c0 .9.53 1.68 1.29 2.06-.3.12-.59.27-.86.44-.92.57-1.5 1.6-1.5 2.67V16c0 .92.44 1.74 1.15 2.26L9 20v2h6v-2l-.35-1.74c.7-.52 1.15-1.34 1.15-2.26v-.83c0-1.07-.58-2.1-1.5-2.67-.27-.17-.56-.32-.86-.44.76-.38 1.29-1.16 1.29-2.06V8.96A3.97 3.97 0 0 0 16 6a4 4 0 0 0-4-4m0 2c1.11 0 2 .89 2 2s-.89 2-2 2-2-.89-2-2 .89-2 2-2m-1 6h2v1.5h-2zm-2 4.17c0-.53.21-1.02.57-1.35.37-.34.88-.52 1.43-.52h2c.55 0 1.06.18 1.43.52.36.33.57.82.57 1.35V14H9z"/>
+    </svg>
+);
+
+export const QuoteIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+);
+
+export const MenuIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+);
+
+export const EditIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
     </svg>
 );

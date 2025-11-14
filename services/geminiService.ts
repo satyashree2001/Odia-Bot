@@ -1,5 +1,6 @@
+// Fix: Add imports for GenerateContentResponse, Modality, and GroundingChunk.
 import { GoogleGenAI, GenerateContentResponse, Modality } from '@google/genai';
-import { type ChatMessage } from '../types';
+import { type ChatMessage, type GroundingChunk } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -14,7 +15,10 @@ You MUST respond exclusively in Odia script and use natural, spoken Odia phrasin
 You must understand, read, and write Odia with the fluency and nuance of a human native speaker from Odisha.
 Default to standard Odia, but understand regional dialects like Sambalpuri or Kosli if the context suggests it.
 When a file is uploaded, analyze its content thoroughly. If it contains Odia text or cultural elements, prioritize them in your analysis and response.
-Be helpful, friendly, and deeply knowledgeable. Your thinking process should be efficient to provide answers as quickly as possible without sacrificing quality or completeness. Provide comprehensive and detailed responses to fulfill user requests thoroughly. Do not artificially shorten your answers.`;
+Be helpful, friendly, and deeply knowledgeable. Your thinking process should be efficient to provide answers as quickly as possible without sacrificing quality or completeness. Provide comprehensive and detailed responses to fulfill user requests thoroughly. Do not artificially shorten your answers. Always end your responses by offering to clarify or expand on the topic.`;
+
+const fastModeInstruction = `You are Satyashree. Respond concisely and directly in Odia, in 1-3 sentences. End by asking if the user needs more details.`;
+
 
 const handleGeminiError = (error: unknown, context: string, details?: { file?: any }): string => {
   console.error(`Error in ${context}:`, error);
@@ -24,7 +28,7 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
 
   if (error instanceof Error) {
     if (error.message.toLowerCase().includes('api key not valid')) {
-      userMessage = 'ଆପଣଙ୍କ API କି ବୈଧ ନୁହେଁ। ଦୟାକରି ଆପଣଙ୍କର ସେଟିଂସ୍ ଯାଞ୍ଚ କରନ୍ତୁ।';
+      userMessage = 'ଆପଣଙ୍କ API କି ବୈଧ ନୁହଁ। ଦୟାକରି ଆପଣଙ୍କର ସେଟିଂସ୍ ଯାଞ୍ଚ କରନ୍ତୁ।';
       return userMessage; // Don't add 'try again' for this
     }
     if (error.message.includes('quota')) {
@@ -36,28 +40,9 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
     } else if (error.message.toLowerCase().includes('deadline exceeded')) {
         userMessage = 'ସଂଯୋଗ ସମୟ ସମାପ୍ତ ହୋଇଗଲା।';
     } else {
-        // Use context-specific generic messages if no specific error is matched
-        switch (context) {
-            case 'runChat':
-              userMessage = details?.file
+        userMessage = details?.file
                 ? 'କ୍ଷମା କରନ୍ତୁ, ଆପଣଙ୍କ ଫାଇଲ୍ ପ୍ରକ୍ରିୟାକରଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
                 : 'କ୍ଷମା କରନ୍ତୁ, ଚାଟ୍ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
-              break;
-            case 'runSearch':
-              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ସନ୍ଧାନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
-              break;
-            case 'runComplexQuery':
-              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଏକ ଜଟିଳ ତ୍ରୁଟି ଘଟିଛି।';
-              break;
-            case 'analyzeVideoUrl':
-              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଭିଡିଓ ବିଶ୍ଳେଷଣ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
-              break;
-            case 'generateImage':
-              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି / ସମ୍ପାଦନ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
-              break;
-            default:
-              userMessage = 'କ୍ଷମା କରନ୍ତୁ, ଏକ ତ୍ରୁଟି ଘଟିଛି।';
-        }
     }
   }
 
@@ -68,14 +53,33 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
 export const runChat = async (
   history: ChatMessage[],
   prompt: string,
-  onChunk: (chunk: string) => void,
+  onChunk: (payload: { chunk: string; mode?: 'fast' | 'expert' }) => void,
   file?: { data: string; mimeType: string }
-): Promise<string> => {
+): Promise<void> => {
   try {
+    let mode: 'fast' | 'expert' = 'expert';
+
+    // If there's a file, it's an expert task. Skip classification.
+    if (!file && prompt) {
+      const classifierPrompt = `Classify the following user query as 'fast' or 'expert'. 
+'Fast' queries are simple facts, greetings, or short questions. 
+'Expert' queries are complex, require reasoning, creativity, or detailed explanation. 
+Respond with only the word 'fast' or 'expert'. 
+Query: "${prompt}"`;
+
+      const classificationResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: classifierPrompt,
+      });
+      const classification = classificationResponse.text.trim().toLowerCase();
+      if (classification === 'fast') {
+        mode = 'fast';
+      }
+    }
+
     const contents = history
-      .filter(msg => msg.text || msg.file) // Exclude empty placeholders or initial greetings without text
+      .filter(msg => msg.text || msg.file)
       .map(msg => {
-          // NOTE: file data from history isn't available as it's not stored, only text is used.
           const parts = [{ text: msg.text }];
           return {
               role: msg.sender === 'user' ? 'user' : 'model',
@@ -94,48 +98,53 @@ export const runChat = async (
     }
     contents.push({ role: 'user', parts: userParts });
 
+    const modelName = mode === 'fast' ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
+    const systemInstruction = mode === 'fast' ? fastModeInstruction : satyashreeSystemInstruction;
 
     const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-pro',
+      model: modelName,
       // @ts-ignore
       contents: contents,
       config: {
-        systemInstruction: satyashreeSystemInstruction,
+        systemInstruction: systemInstruction,
       },
     });
 
-    let fullResponse = '';
+    let isFirstChunk = true;
+
     for await (const chunk of responseStream) {
       const chunkText = chunk.text;
       if (chunkText) {
-        fullResponse += chunkText;
-        onChunk(chunkText);
+        if (isFirstChunk) {
+          onChunk({ chunk: chunkText, mode: mode });
+          isFirstChunk = false;
+        } else {
+          onChunk({ chunk: chunkText });
+        }
       }
     }
-    return fullResponse;
-
   } catch (error) {
     const errorMessage = handleGeminiError(error, 'runChat', { file });
-    onChunk(errorMessage);
-    return errorMessage;
+    onChunk({ chunk: errorMessage });
   }
 };
 
+// Fix: Implement and export runSearch function.
 export const runSearch = async (
   prompt: string,
   onChunk: (chunk: string) => void,
-  latLng?: { latitude: number; longitude: number }
-): Promise<{ text: string, groundingChunks: any[] }> => {
+  location?: { latitude: number; longitude: number }
+): Promise<{ text: string; groundingChunks: GroundingChunk[] }> => {
   try {
-    const config: any = {
-      systemInstruction: satyashreeSystemInstruction,
-      tools: [{ googleSearch: {} }, { googleMaps: {} }],
-    };
+    const tools: any[] = [{ googleSearch: {} }];
+    const toolConfig: any = {};
 
-    if (latLng) {
-      config.toolConfig = {
-        retrievalConfig: {
-          latLng: latLng,
+    if (location) {
+      tools.push({ googleMaps: {} });
+      toolConfig.retrievalConfig = {
+        latLng: {
+          latitude: location.latitude,
+          longitude: location.longitude,
         },
       };
     }
@@ -143,25 +152,29 @@ export const runSearch = async (
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: config,
+      config: {
+        systemInstruction: satyashreeSystemInstruction,
+        tools: tools,
+        toolConfig: Object.keys(toolConfig).length > 0 ? toolConfig : undefined,
+      },
     });
 
     let fullText = '';
-    let groundingChunks: any[] = [];
+    let finalResponse: GenerateContentResponse | null = null;
 
     for await (const chunk of responseStream) {
+      finalResponse = chunk;
       const chunkText = chunk.text;
       if (chunkText) {
         fullText += chunkText;
         onChunk(chunkText);
       }
-      const newChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (newChunks) {
-          groundingChunks = newChunks;
-      }
     }
 
-    return { text: fullText, groundingChunks };
+    const groundingChunks = finalResponse?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    return { text: fullText, groundingChunks: groundingChunks as GroundingChunk[] };
+
   } catch (error) {
     const errorMessage = handleGeminiError(error, 'runSearch');
     onChunk(errorMessage);
@@ -169,51 +182,18 @@ export const runSearch = async (
   }
 };
 
+interface Turn {
+  role: 'user' | 'model';
+  text: string;
+}
+
+// Fix: Implement and export runComplexQuery function.
 export const runComplexQuery = async (
-  history: { role: 'user' | 'model'; text: string }[],
+  history: Turn[],
   prompt: string,
   onChunk: (chunk: string) => void
 ): Promise<string> => {
   try {
-     const contents = history.map(turn => ({
-      role: turn.role,
-      parts: [{ text: turn.text }],
-    }));
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-pro',
-      contents: contents,
-      config: {
-        systemInstruction: satyashreeSystemInstruction,
-        thinkingConfig: { thinkingBudget: 32768 },
-      },
-    });
-
-    let fullResponse = '';
-    for await (const chunk of responseStream) {
-      const chunkText = chunk.text;
-      if (chunkText) {
-        fullResponse += chunkText;
-        onChunk(chunkText);
-      }
-    }
-    return fullResponse;
-  } catch (error) {
-    const errorMessage = handleGeminiError(error, 'runComplexQuery');
-    onChunk(errorMessage);
-    return errorMessage;
-  }
-};
-
-export const analyzeVideoUrl = async (
-  history: { role: 'user' | 'model'; text: string }[],
-  url: string,
-  onChunk: (chunk: string) => void
-): Promise<string> => {
-  try {
-    const prompt = `Please provide a detailed summary in the Odia language for the video at the following URL. Analyze its content, focusing on the main topics, key points, and overall conclusion. URL: ${url}`;
-    
     const contents = history.map(turn => ({
       role: turn.role,
       parts: [{ text: turn.text }],
@@ -222,22 +202,64 @@ export const analyzeVideoUrl = async (
 
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-2.5-pro',
+      // @ts-ignore
       contents: contents,
       config: {
         systemInstruction: satyashreeSystemInstruction,
-        tools: [{ googleSearch: {} }],
+        thinkingConfig: { thinkingBudget: 32768 },
       },
     });
 
-    let fullResponse = '';
+    let fullText = '';
     for await (const chunk of responseStream) {
       const chunkText = chunk.text;
       if (chunkText) {
-        fullResponse += chunkText;
+        fullText += chunkText;
         onChunk(chunkText);
       }
     }
-    return fullResponse;
+    return fullText;
+  } catch (error) {
+    const errorMessage = handleGeminiError(error, 'runComplexQuery');
+    onChunk(errorMessage);
+    return errorMessage;
+  }
+};
+
+// Fix: Implement and export analyzeVideoUrl function.
+export const analyzeVideoUrl = async (
+  history: Turn[],
+  videoUrl: string,
+  onChunk: (chunk: string) => void
+): Promise<string> => {
+  try {
+    const prompt = `Please analyze the content of the video at this URL and provide a detailed summary in Odia: ${videoUrl}`;
+
+    const contents = history.map(turn => ({
+      role: turn.role,
+      parts: [{ text: turn.text }],
+    }));
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+    
+    const responseStream = await ai.models.generateContentStream({
+      model: 'gemini-2.5-pro',
+      // @ts-ignore
+      contents: contents,
+      config: {
+        systemInstruction: satyashreeSystemInstruction,
+        thinkingConfig: { thinkingBudget: 32768 },
+      },
+    });
+
+    let fullText = '';
+    for await (const chunk of responseStream) {
+      const chunkText = chunk.text;
+      if (chunkText) {
+        fullText += chunkText;
+        onChunk(chunkText);
+      }
+    }
+    return fullText;
   } catch (error) {
     const errorMessage = handleGeminiError(error, 'analyzeVideoUrl');
     onChunk(errorMessage);
@@ -245,60 +267,60 @@ export const analyzeVideoUrl = async (
   }
 };
 
+interface ImagePayload {
+    data: string;
+    mimeType: string;
+}
 
+// Fix: Implement and export generateImage function.
 export const generateImage = async (
-    prompt: string,
-    images?: { data: string; mimeType: string }[]
+  prompt: string,
+  images: ImagePayload[]
 ): Promise<string> => {
   try {
-    const isEditing = images && images.length > 0;
+    const textPart = { text: prompt };
+    const imageParts = images.map(img => ({
+      inlineData: {
+        data: img.data,
+        mimeType: img.mimeType,
+      },
+    }));
 
-    if (isEditing) {
-        const requestParts: any[] = [];
-        images.forEach(image => {
-            requestParts.push({
-                inlineData: {
-                    data: image.data,
-                    mimeType: image.mimeType,
-                },
-            });
-        });
-        requestParts.push({ text: prompt });
+    const parts = [...imageParts, textPart];
 
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: requestParts },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        });
-        
-        const imagePart = response.candidates?.[0]?.content?.parts.find(p => !!p.inlineData);
-        if (imagePart && imagePart.inlineData) {
-            return imagePart.inlineData.data;
-        }
-        throw new Error('No image data received during editing');
-
-    } else {
-        const finalPrompt = `Create a professional and high-quality graphic design based on the following description. This could be a logo, flyer, banner, or another visual concept. Focus on clarity, aesthetics, and relevance to the prompt. Description: "${prompt}"`;
-        
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: finalPrompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/png',
-              aspectRatio: '1:1',
-            },
-        });
-        
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            return response.generatedImages[0].image.imageBytes;
-        }
-        throw new Error('No image data received during generation');
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: parts },
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    });
+    
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return part.inlineData.data;
+      }
     }
+
+    throw new Error('No image was generated. The model did not return an image.');
   } catch (error) {
-    const errorMessage = handleGeminiError(error, 'generateImage');
-    throw new Error(errorMessage);
+    throw new Error(handleGeminiError(error, 'generateImage'));
+  }
+};
+
+export const generateTitleForChat = async (prompt: string): Promise<string> => {
+  try {
+    const titlePrompt = `Please create a very short, concise title in the Odia language (3-5 words maximum) for a conversation that starts with this user prompt: "${prompt}". Respond with only the title text and nothing else.`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: titlePrompt,
+    });
+    
+    const title = response.text.trim().replace(/"/g, '');
+    return title || 'ନୂଆ ବାର୍ତ୍ତାଳାପ';
+  } catch (error) {
+    console.error('Error generating title:', error);
+    return 'ନୂଆ ବାର୍ତ୍ତାଳାପ'; 
   }
 };

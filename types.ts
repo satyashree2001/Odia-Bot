@@ -8,7 +8,23 @@ export interface ChatMessage {
     type: string;
     previewUrl: string;
   };
-  feedback?: 'liked' | 'disliked' | null;
+  mode?: 'fast' | 'expert';
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+}
+
+export interface Conversations {
+  [id: string]: Conversation;
+}
+
+export interface ReviewSnippet {
+  uri: string;
+  title: string;
+  snippet: string;
 }
 
 export interface GroundingChunk {
@@ -19,5 +35,8 @@ export interface GroundingChunk {
   maps?: {
     uri: string;
     title: string;
+    placeAnswerSources?: {
+      reviewSnippets?: ReviewSnippet[];
+    };
   };
 }

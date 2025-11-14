@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type GroundingChunk } from '../types';
 import { runSearch } from '../services/geminiService';
-import { SendIcon, LinkIcon, MapPinIcon } from './icons';
+import { SendIcon, LinkIcon, MapPinIcon, QuoteIcon } from './icons';
 
 const searchSuggestions = [
   'ଓଡ଼ିଶାରେ ଆଜିର ପାଣିପାଗ କିପରି ଅଛି?',
@@ -177,25 +178,41 @@ const Search: React.FC = () => {
                     const isWeb = !!chunk.web;
                     
                     return (
-                      <a
+                      <div
                         key={`${isWeb ? 'web' : 'map'}-${index}`}
-                        href={source.uri}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="block p-4 rounded-xl border border-slate-700 bg-slate-800/50 transition-all duration-300 ease-in-out hover:border-cyan-500/40 hover:bg-slate-800 hover:shadow-cyan-500/10 hover:shadow-lg hover:-translate-y-1"
                       >
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex-shrink-0 text-cyan-400">
-                            {isWeb ? <LinkIcon /> : <MapPinIcon />}
+                        <a
+                          href={source.uri}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-shrink-0 text-cyan-400">
+                              {isWeb ? <LinkIcon /> : <MapPinIcon />}
+                            </div>
+                            <h4 className="font-bold text-base text-cyan-300 break-words line-clamp-2">
+                              {source.title || 'Untitled Source'}
+                            </h4>
                           </div>
-                          <h4 className="font-bold text-base text-cyan-300 break-words line-clamp-2">
-                            {source.title || 'Untitled Source'}
-                          </h4>
-                        </div>
-                        <p className="text-xs text-slate-400 break-all opacity-75">
-                          {source.uri}
-                        </p>
-                      </a>
+                          <p className="text-xs text-slate-400 break-all opacity-75">
+                            {source.uri}
+                          </p>
+                        </a>
+                        {chunk.maps?.placeAnswerSources?.reviewSnippets?.map((snippet, sIndex) => (
+                          <div key={`snippet-${index}-${sIndex}`} className="mt-3 pt-3 border-t border-slate-700/50">
+                            <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="block p-2 rounded-lg hover:bg-slate-700/50">
+                              <div className="flex items-start gap-2 mb-1">
+                                <QuoteIcon className="text-cyan-400 flex-shrink-0 mt-1" />
+                                <div>
+                                    <h5 className="font-semibold text-sm text-slate-300">{snippet.title}</h5>
+                                    <p className="text-xs text-slate-400 italic mt-1">"{snippet.snippet}"</p>
+                                </div>
+                              </div>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
                     );
                   })}
                 </div>
