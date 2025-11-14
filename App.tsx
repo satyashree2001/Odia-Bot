@@ -196,7 +196,33 @@ const App: React.FC = () => {
       };
       
       const filePayload = file ? { data: file.data, mimeType: file.mimeType } : undefined;
-      await runChat(historyForApi, prompt, onChunk, filePayload);
+      const result = await runChat(historyForApi, prompt, onChunk, filePayload);
+
+      if (result.groundingChunks && result.groundingChunks.length > 0) {
+        setConversations(prev => {
+          if (!activeConversationId) return prev;
+          const currentConv = prev[activeConversationId];
+          if (!currentConv) return prev;
+          
+          const currentMessages = [...currentConv.messages];
+          const lastMessage = currentMessages[currentMessages.length - 1];
+
+          if (lastMessage && lastMessage.sender === 'bot') {
+              const updatedLastMessage = {
+                  ...lastMessage,
+                  groundingChunks: result.groundingChunks,
+              };
+              return {
+                  ...prev,
+                  [activeConversationId]: {
+                      ...currentConv,
+                      messages: [...currentMessages.slice(0, -1), updatedLastMessage]
+                  }
+              };
+          }
+          return prev;
+        });
+      }
 
     } finally {
       setIsGenerating(false);

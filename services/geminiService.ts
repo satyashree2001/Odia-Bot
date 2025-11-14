@@ -10,11 +10,12 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const satyashreeSystemInstruction = `You are Satyashree, your full name is Satyashree Krushna Chandra Sahoo. You are a highly intelligent and empathetic chatbot. Your primary language is Odia (ଓଡ଼ିଆ). 
+const satyashreeSystemInstruction = `You are Satyashree, your full name is Satyashree Krushna Chandra Sahoo. You are a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ). 
 You MUST respond exclusively in Odia script and use natural, spoken Odia phrasing, unless the user explicitly asks for a translation.
 You must understand, read, and write Odia with the fluency and nuance of a human native speaker from Odisha.
 Default to standard Odia, but understand regional dialects like Sambalpuri or Kosli if the context suggests it.
 When a file is uploaded, analyze its content thoroughly. If it contains Odia text or cultural elements, prioritize them in your analysis and response.
+For questions about current events, facts, jobs, or any topic requiring up-to-date information, you MUST use your search tool to provide the most accurate and recent answers.
 Be helpful, friendly, and deeply knowledgeable. Your thinking process should be efficient to provide answers as quickly as possible without sacrificing quality or completeness. Provide comprehensive and detailed responses to fulfill user requests thoroughly. Do not artificially shorten your answers. Always end your responses by offering to clarify or expand on the topic.`;
 
 const fastModeInstruction = `You are Satyashree. Respond concisely and directly in Odia, in 1-3 sentences. End by asking if the user needs more details.`;
@@ -27,21 +28,32 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
   let userMessage = `କ୍ଷମା କରନ୍ତୁ, ଏକ ଅଜ୍ଞାତ ତ୍ରୁଟି ଘଟିଛି।`;
 
   if (error instanceof Error) {
-    if (error.message.toLowerCase().includes('api key not valid')) {
+    const errorMsg = error.message.toLowerCase();
+
+    if (errorMsg.includes('api key not valid')) {
       userMessage = 'ଆପଣଙ୍କ API କି ବୈଧ ନୁହଁ। ଦୟାକରି ଆପଣଙ୍କର ସେଟିଂସ୍ ଯାଞ୍ଚ କରନ୍ତୁ।';
-      return userMessage; // Don't add 'try again' for this
+      return userMessage;
     }
-    if (error.message.includes('quota')) {
+    
+    if (context === 'generateImage' && (errorMsg.includes('permission denied') || errorMsg.includes('forbidden') || errorMsg.includes('403'))) {
+      userMessage = 'ଚିତ୍ର ସୃଷ୍ଟି କରିବାରେ ବିଫଳ। ଏହା ଏକ API କି ଅନୁମତି ସମସ୍ୟା ହୋଇପାରେ। ଦୟାକରି ନିଶ୍ଚିତ କରନ୍ତୁ ଯେ ଆପଣଙ୍କର API କି "Generative Language API" ପାଇଁ ସକ୍ଷମ ଅଛି ଏବଂ ଆପଣଙ୍କ ପ୍ରୋଜେକ୍ଟରେ ବିଲିଂ ସେଟ୍ ଅପ୍ ହୋଇଛି।';
+      return userMessage;
+    }
+
+    if (errorMsg.includes('quota')) {
       userMessage = 'ଆପଣ ଆପଣଙ୍କର API କୋଟା ଅତିକ୍ରମ କରିଛନ୍ତି।';
       return userMessage;
     }
-    if (error.message.includes('429')) { // Too Many Requests
+    
+    if (errorMsg.includes('429')) { // Too Many Requests
       userMessage = 'ବହୁତ ଅଧିକ ଅନୁରୋଧ।';
-    } else if (error.message.toLowerCase().includes('deadline exceeded')) {
+    } else if (errorMsg.includes('deadline exceeded')) {
         userMessage = 'ସଂଯୋଗ ସମୟ ସମାପ୍ତ ହୋଇଗଲା।';
     } else {
         userMessage = details?.file
                 ? 'କ୍ଷମା କରନ୍ତୁ, ଆପଣଙ୍କ ଫାଇଲ୍ ପ୍ରକ୍ରିୟାକରଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
+                 : context === 'generateImage' 
+                ? 'କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
                 : 'କ୍ଷମା କରନ୍ତୁ, ଚାଟ୍ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
     }
   }
@@ -55,7 +67,7 @@ export const runChat = async (
   prompt: string,
   onChunk: (payload: { chunk: string; mode?: 'fast' | 'expert' }) => void,
   file?: { data: string; mimeType: string }
-): Promise<void> => {
+): Promise<{ groundingChunks: GroundingChunk[] }> => {
   try {
     let mode: 'fast' | 'expert' = 'expert';
 
@@ -101,18 +113,27 @@ Query: "${prompt}"`;
     const modelName = mode === 'fast' ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
     const systemInstruction = mode === 'fast' ? fastModeInstruction : satyashreeSystemInstruction;
 
+    const config: any = {
+        systemInstruction: systemInstruction,
+    };
+
+    // Use Google Search for all non-file queries to ensure up-to-date information.
+    if (!file) {
+        config.tools = [{googleSearch: {}}];
+    }
+
     const responseStream = await ai.models.generateContentStream({
       model: modelName,
       // @ts-ignore
       contents: contents,
-      config: {
-        systemInstruction: systemInstruction,
-      },
+      config: config,
     });
 
     let isFirstChunk = true;
+    let finalResponse: GenerateContentResponse | null = null;
 
     for await (const chunk of responseStream) {
+      finalResponse = chunk;
       const chunkText = chunk.text;
       if (chunkText) {
         if (isFirstChunk) {
@@ -123,9 +144,14 @@ Query: "${prompt}"`;
         }
       }
     }
+
+    const groundingChunks = finalResponse?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+    return { groundingChunks: groundingChunks as GroundingChunk[] };
   } catch (error) {
     const errorMessage = handleGeminiError(error, 'runChat', { file });
     onChunk({ chunk: errorMessage });
+    return { groundingChunks: [] };
   }
 };
 

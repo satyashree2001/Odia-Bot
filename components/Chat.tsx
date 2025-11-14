@@ -3,7 +3,7 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon, PlusIcon } from './icons';
+import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon, PlusIcon, LinkIcon } from './icons';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -240,6 +240,40 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
                       {isSpeechSynthesisSupported && <button onClick={() => handleSpeak(msg.text, msg.id)}><SpeakerIcon className={speakingMessageId === msg.id ? 'text-cyan-400 animate-pulse' : 'text-slate-500 hover:text-white'}/></button>}
                       <button onClick={() => handleCopy(msg.text, msg.id)} disabled={copiedMessageId === msg.id} className="flex items-center">{copiedMessageId === msg.id ? <><CheckIcon className="text-green-400" /><span className="text-xs text-green-400 ml-1">Copied!</span></> : <CopyIcon className="text-slate-500 hover:text-white"/>}</button>
                       {feedbackMap[msg.id] && <p className="text-xs text-slate-400">ପ୍ରତିକ୍ରିୟା ପାଇଁ ଧନ୍ୟବାଦ!</p>}
+                  </div>
+              )}
+              {msg.sender === 'bot' && msg.groundingChunks && msg.groundingChunks.length > 0 && (
+                  <div className="ml-11 mt-3 max-w-md md:max-w-lg">
+                    <h3 className="font-semibold text-cyan-400 mb-2 text-sm">ଉତ୍ସଗୁଡ଼ିକ (Sources):</h3>
+                    <div className="grid grid-cols-1 gap-2">
+                      {msg.groundingChunks.map((chunk, index) => {
+                        const source = chunk.web;
+                        if (!source) return null;
+                        return (
+                          <a
+                            key={`web-src-${index}`}
+                            href={source.uri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-2.5 rounded-lg border border-slate-700 bg-slate-800/60 transition-colors hover:bg-slate-700/80"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 text-cyan-400 pt-0.5">
+                                <LinkIcon />
+                              </div>
+                              <div className="overflow-hidden">
+                                <h4 className="font-semibold text-xs text-cyan-300 truncate">
+                                  {source.title || 'Untitled Source'}
+                                </h4>
+                                <p className="text-xs text-slate-400 truncate opacity-80">
+                                  {source.uri}
+                                </p>
+                              </div>
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
                   </div>
               )}
             </div>

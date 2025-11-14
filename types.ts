@@ -1,4 +1,5 @@
 
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'bot';
@@ -9,6 +10,7 @@ export interface ChatMessage {
     previewUrl: string;
   };
   mode?: 'fast' | 'expert';
+  groundingChunks?: GroundingChunk[];
 }
 
 export interface Conversation {
