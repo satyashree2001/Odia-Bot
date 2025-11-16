@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ChatIcon, SearchIcon, MicrophoneIcon } from './icons';
 
@@ -8,48 +7,34 @@ interface WelcomeProps {
 
 const Welcome: React.FC<WelcomeProps> = ({ onDismiss }) => {
   const features = [
-    { name: 'ବାର୍ତ୍ତାଳାପ ଏବଂ ଫାଇଲ୍ ବିଶ୍ଳେଷଣ', icon: <ChatIcon /> },
-    { name: 'ଖୋଜ ଏବଂ ବିଶ୍ଳେଷଣ', icon: <SearchIcon /> },
-    { name: 'ଭଏସ୍ ଚାଟ୍', icon: <MicrophoneIcon /> },
+    { name: 'Engaging Conversations', description: 'Chat about anything in natural, spoken Odia.', icon: <ChatIcon /> },
+    { name: 'Real-time Information', description: 'Get up-to-date answers with integrated search.', icon: <SearchIcon /> },
+    { name: 'Hands-free Voice Chat', description: 'Talk to Satyashree with a seamless voice experience.', icon: <MicrophoneIcon /> },
   ];
 
   return (
-    <div className="fixed inset-0 bg-slate-900 z-50 flex justify-center items-center p-4">
-      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-2xl w-full text-center transform transition-all animate-fade-in-up">
-        <h1 className="text-4xl font-bold text-cyan-400 mb-2">ସତ୍ୟଶ୍ରୀ ଆପଣଙ୍କୁ ସ୍ଵାଗତ ଜଣାଉଛି</h1>
-        <p className="text-lg text-slate-300 mb-8">ଆପଣଙ୍କ ଓଡ଼ିଆ AI ସହାୟକ</p>
+    <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-50 flex justify-center items-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-3xl w-full text-center transition-all fade-in dark:bg-gray-800 dark:border-gray-700">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 dark:text-gray-100">Welcome to Satyashree</h1>
+        <p className="text-base sm:text-lg text-gray-600 mb-8 dark:text-gray-400">Your intelligent Odia AI Assistant</p>
         
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-left">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 text-left">
           {features.map((feature, index) => (
-            <div key={index} className="bg-slate-700/50 p-4 rounded-lg flex items-center gap-3">
-              <div className="text-cyan-400">{feature.icon}</div>
-              <span className="text-slate-200 text-sm">{feature.name}</span>
+            <div key={index} className="p-4 rounded-lg">
+              <div className="text-blue-500 w-8 h-8 mb-2 dark:text-blue-400">{feature.icon}</div>
+              <h3 className="font-semibold text-gray-800 mb-1 dark:text-gray-200">{feature.name}</h3>
+              <p className="text-gray-600 text-sm dark:text-gray-400">{feature.description}</p>
             </div>
           ))}
         </div>
 
         <button
           onClick={onDismiss}
-          className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-bold py-3 px-8 rounded-full hover:opacity-90 transition-opacity text-lg"
+          className="bg-gray-800 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-900 transition-opacity text-base sm:text-lg dark:bg-gray-700 dark:hover:bg-gray-600"
         >
-          ଆରମ୍ଭ କରନ୍ତୁ
+          Get Started
         </button>
       </div>
-       <style>{`
-        @keyframes fade-in-up {
-          0% {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.5s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };

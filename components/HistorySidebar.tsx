@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-// Fix: Import the 'Conversation' type to resolve type errors.
 import { type Conversations, type Conversation } from '../types';
 import { PlusIcon, TrashIcon, EditIcon, CheckIcon } from './icons';
 
@@ -54,7 +53,6 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     }
   };
   
-  // Fix: Explicitly type 'a' and 'b' to 'Conversation' to resolve type errors.
   const conversationList = Object.values(conversations).sort((a: Conversation, b: Conversation) => {
     const lastMsgA = a.messages[a.messages.length - 1];
     const lastMsgB = b.messages[b.messages.length - 1];
@@ -66,25 +64,25 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
   return (
     <>
       <div
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-30 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/40 z-30 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
       />
       <div
-        className={`fixed top-0 left-0 h-full w-72 bg-slate-900/80 backdrop-blur-lg border-r border-slate-700/50 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 bg-[#202123] text-gray-200 border-r border-white/10 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-slate-700/50 flex justify-between items-center">
-            <h2 className="text-lg font-bold text-cyan-400">ବାର୍ତ୍ତାଳାପ</h2>
+          <div className="p-3 border-b border-white/10 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">History</h2>
             <button
               onClick={onNew}
-              className="flex items-center gap-1 text-sm bg-cyan-500/10 text-cyan-300 px-3 py-1.5 rounded-lg hover:bg-cyan-500/20"
+              className="flex items-center gap-2 text-sm border border-white/20 text-white px-3 py-1.5 rounded-lg hover:bg-white/10"
             >
               <PlusIcon />
-              <span>ନୂଆ</span>
+              <span>New Chat</span>
             </button>
           </div>
           <div className="flex-grow overflow-y-auto p-2">
@@ -92,10 +90,10 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
               {conversationList.map(({ id, title }) => (
                 <li key={id}>
                   <div
-                    className={`group w-full flex items-center p-2 rounded-lg cursor-pointer ${
+                    className={`group w-full flex items-center p-2.5 rounded-lg cursor-pointer ${
                       activeConversationId === id
-                        ? 'bg-cyan-500/20 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/50'
+                        ? 'bg-[#343541]'
+                        : 'hover:bg-[#2A2B32]'
                     }`}
                   >
                     {editingId === id ? (
@@ -106,7 +104,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         onChange={(e) => setRenameValue(e.target.value)}
                         onBlur={() => handleRenameSubmit(id)}
                         onKeyDown={(e) => handleKeyDown(e, id)}
-                        className="flex-grow bg-transparent border-b border-cyan-400 focus:outline-none text-sm"
+                        className="flex-grow bg-transparent border-b border-blue-400 focus:outline-none text-sm"
                       />
                     ) : (
                       <span onClick={() => onLoad(id)} className="flex-grow truncate text-sm">
@@ -119,22 +117,22 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                           <CheckIcon />
                         </button>
                       ) : (
-                        <>
-                          <button onClick={() => handleRenameClick(id, title)} className="text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleRenameClick(id, title)} className="text-gray-400 hover:text-white">
                             <EditIcon />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (window.confirm(`ଆପଣ ନିଶ୍ଚିତ ଯେ ଆପଣ "${title}" ବାର୍ତ୍ତାଳାପ ଡିଲିଟ୍ କରିବାକୁ ଚାହୁଁଛନ୍ତି?`)) {
+                              if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
                                 onDelete(id);
                               }
                             }}
-                            className="ml-1 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="ml-2 text-gray-400 hover:text-red-400"
                           >
                             <TrashIcon className="h-4 w-4" />
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>

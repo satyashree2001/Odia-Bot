@@ -1,23 +1,34 @@
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon } from './components/icons';
+import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon, SunIcon, MoonIcon } from './components/icons';
 import Chat from './components/Chat';
 import AuthModal from './components/AuthModal';
 import Welcome from './components/Welcome';
 import HistorySidebar from './components/HistorySidebar';
 import Search from './components/Search';
 import VoiceChat from './components/VoiceChat';
+
 import { type ChatMessage, type Conversations, type Conversation } from './types';
 import { runChat, generateTitleForChat } from './services/geminiService';
 
-const getInitialMessage = (): ChatMessage => ({
-  id: crypto.randomUUID(),
-  sender: 'bot',
-  text: 'ନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?',
-});
+const odiaMotivationalQuotes = [
+  "ସଫଳତା ପାଇଁ କୌଣସି ସର୍ଟକଟ୍ ନାହିଁ, କେବଳ କଠିନ ପରିଶ୍ରମ ହିଁ ଏକମାତ୍ର ରାସ୍ତା।",
+  "ଯେଉଁମାନେ ଚେଷ୍ଟା କରନ୍ତି, ସେମାନେ କେବେ ହାରନ୍ତି ନାହିଁ।",
+  "ନିଜ ଉପରେ ବିଶ୍ୱାସ ରଖ, ତୁମେ ଯାହା ଚାହିଁବ ତାହା କରିପାରିବ।",
+  "ଆଜିର ସଂଘର୍ଷ କାଲିର ଶକ୍ତି।",
+  "ସ୍ୱପ୍ନ ସେୟା ନୁହେଁ ଯାହା ଆମେ ଶୋଇଲା ବେଳେ ଦେଖୁ, ସ୍ୱପ୍ନ ସେୟା ଯାହା ଆମକୁ ଶୋଇବାକୁ ଦିଏ ନାହିଁ।"
+];
+
+const getInitialMessage = (): ChatMessage => {
+  const randomQuote = odiaMotivationalQuotes[Math.floor(Math.random() * odiaMotivationalQuotes.length)];
+  return {
+    id: crypto.randomUUID(),
+    sender: 'bot',
+    text: `"${randomQuote}"\n\nନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?`,
+  };
+};
 
 type Mode = 'chat' | 'search' | 'voice';
+type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -25,12 +36,39 @@ const App: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(!sessionStorage.getItem('satyashree_welcome_seen'));
   const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>('chat');
+  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
 
   // Chat State
   const [conversations, setConversations] = useState<Conversations>({});
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Theme management
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('satyashree_theme') as Theme;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else if (prefersDark) {
+      setTheme('dark');
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('satyashree_theme', theme);
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
+
 
   // Load user and conversations
   useEffect(() => {
@@ -111,16 +149,13 @@ const App: React.FC = () => {
     const newConversations = { ...conversations };
     delete newConversations[id];
   
-    // Case 1: Deleting a conversation that is NOT active.
     if (activeConversationId !== id) {
       setConversations(newConversations);
       return;
     }
   
-    // Case 2: Deleting the ACTIVE conversation.
     const remainingIds = Object.keys(newConversations);
     if (remainingIds.length > 0) {
-      // If there are other conversations, make the most recent one active.
       const sortedIds = Object.values(newConversations)
         .sort((a: Conversation, b: Conversation) =>
           (b.messages.slice(-1)[0]?.id || '').localeCompare(a.messages.slice(-1)[0]?.id || '')
@@ -130,9 +165,6 @@ const App: React.FC = () => {
       setActiveConversationId(sortedIds[0]);
       setConversations(newConversations);
     } else {
-      // Case 3: Deleting the VERY LAST conversation.
-      // `handleNewChat` will create a new conversation and set it as active.
-      // It also updates the `conversations` state, so we don't call `setConversations` here.
       handleNewChat();
     }
   };
@@ -269,11 +301,11 @@ const App: React.FC = () => {
 
   const activeMessages = activeConversationId ? conversations[activeConversationId]?.messages : [];
 
-  const modes = [
-    { id: 'chat', name: 'ଗପସପ', icon: <ChatIcon /> },
-    { id: 'search', name: 'ଖୋଜ', icon: <SearchIcon /> },
-    { id: 'voice', name: 'ଭଏସ୍', icon: <MicrophoneIcon /> },
-  ];
+  const modes = {
+    chat: { name: 'ଗପସପ (Chat)', icon: <ChatIcon /> },
+    search: { name: 'ଖୋଜ (Search)', icon: <SearchIcon /> },
+    voice: { name: 'ଭଏସ୍ (Voice)', icon: <MicrophoneIcon /> },
+  };
 
   const renderActiveMode = () => {
     switch (activeMode) {
@@ -281,10 +313,8 @@ const App: React.FC = () => {
         return <Chat 
                   key={activeConversationId} 
                   messages={activeMessages || [getInitialMessage()]}
-                  currentUser={currentUser}
                   isLoading={isGenerating}
                   onSendMessage={handleSendMessage}
-                  onNewChat={handleNewChat}
                   onStopGeneration={handleStopGeneration}
                />;
       case 'search':
@@ -311,62 +341,67 @@ const App: React.FC = () => {
             onRename={handleRenameConversation}
         />
       }
-      <div className={`h-full bg-transparent text-slate-100 flex flex-col font-sans ${showWelcome ? 'hidden' : ''}`}>
-        <header className="bg-slate-800/50 backdrop-blur-sm shadow-lg p-4 sticky top-0 z-20 border-b border-slate-700/50">
-          <div className="container mx-auto flex justify-between items-center">
-             <div className="flex items-center gap-2">
+      <div className={`h-full bg-gray-50 text-gray-800 flex flex-col font-sans dark:bg-gray-900 dark:text-gray-200 ${showWelcome ? 'hidden' : ''}`}>
+        <header className="flex-shrink-0 bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+          <div className="container mx-auto flex justify-between items-center h-16 px-4">
+            <div className="flex items-center gap-2">
                 {currentUser && (
-                    <button onClick={() => setIsHistorySidebarOpen(true)} className="p-2 rounded-md text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50">
+                    <button onClick={() => setIsHistorySidebarOpen(true)} className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700">
                         <MenuIcon />
                     </button>
                 )}
-                <h1 className="text-2xl font-bold text-cyan-400">Satyashree (ସତ୍ୟଶ୍ରୀ)</h1>
+            </div>
+
+            <div className="relative">
+                <button onClick={() => setIsModeDropdownOpen(prev => !prev)} className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    <span>Satyashree</span>
+                    <span className="text-gray-500 text-sm dark:text-gray-400">({modes[activeMode].name})</span>
+                    <svg className={`w-4 h-4 text-gray-500 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {isModeDropdownOpen && (
+                    <div className="absolute top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 dark:bg-gray-700 dark:border-gray-600">
+                        {(Object.keys(modes) as Mode[]).map(modeId => (
+                            <button
+                                key={modeId}
+                                onClick={() => {
+                                    setActiveMode(modeId);
+                                    setIsModeDropdownOpen(false);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-3 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                {React.cloneElement(modes[modeId].icon, { className: 'h-5 w-5' })}
+                                <span>{modes[modeId].name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-4">
+               <button onClick={handleThemeToggle} className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700">
+                  {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+                </button>
               {currentUser ? (
                   <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 text-cyan-400">
-                          <UserIcon />
+                      <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                          <div className="w-8 h-8"><UserIcon /></div>
                           <span className="font-medium hidden sm:inline">{currentUser}</span>
                       </div>
-                      <button onClick={signOut} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white bg-slate-700 px-3 py-2 rounded-lg">
+                      <button onClick={signOut} title="Sign Out" className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700">
                           <LogoutIcon />
-                          <span className="hidden sm:inline">Sign Out</span>
                       </button>
                   </div>
               ) : (
-                  <button onClick={() => setIsAuthModalOpen(true)} className="bg-cyan-500 text-white text-sm px-3 py-2 rounded-lg hover:bg-cyan-600 transition-colors">
-                      Sign In to Save Chat
+                  <button onClick={() => setIsAuthModalOpen(true)} className="bg-gray-800 text-white text-sm px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600">
+                      Sign In
                   </button>
               )}
             </div>
           </div>
         </header>
-
-         <nav className="container mx-auto px-4 pt-4">
-            <div className="bg-slate-800/50 backdrop-blur-sm p-2 rounded-full flex items-center justify-center gap-2 border border-slate-700/50">
-                {modes.map(mode => (
-                    <button
-                        key={mode.id}
-                        onClick={() => setActiveMode(mode.id as Mode)}
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-full transition-colors ${
-                            activeMode === mode.id 
-                                ? 'bg-cyan-500 text-white shadow-md' 
-                                : 'text-slate-300 hover:bg-slate-700/50'
-                        }`}
-                    >
-                        {mode.icon}
-                        <span className="hidden sm:inline">{mode.name}</span>
-                    </button>
-                ))}
-            </div>
-        </nav>
         
-        <main className="flex-grow container mx-auto p-4 flex flex-col">
-           <div className="fade-in flex-grow flex flex-col">
-              {renderActiveMode()}
-          </div>
+        <main className="flex-1 w-full h-full overflow-hidden">
+           {renderActiveMode()}
         </main>
       </div>
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSignIn={signIn} />

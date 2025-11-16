@@ -1,107 +1,63 @@
-
-
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, MicrophoneIcon, SpeakerIcon, PlusIcon, LinkIcon, StopIcon } from './icons';
+import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, SpeakerIcon, PlusIcon, LinkIcon, StopIcon, UserIcon, SatyashreeIcon } from './icons';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatProps {
   messages: ChatMessage[];
-  currentUser: string | null;
   isLoading: boolean;
   onSendMessage: (prompt: string, file?: { data: string; mimeType: string; name: string; previewUrl: string }) => Promise<void>;
-  onNewChat: () => void;
   onStopGeneration: () => void;
 }
 
-const MAX_FILE_SIZE_MB = 20;
+const MAX_FILE_SIZE_MB = 50;
 
-const fileToBase64 = (file: File, onProgress: (progress: number) => void): Promise<string> =>
+const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => {
-      onProgress(100);
-      resolve((reader.result as string).split(',')[1]);
-    };
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentLoaded = Math.round((event.loaded / event.total) * 100);
-        onProgress(percentLoaded);
-      }
-    };
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = (error) => reject(error);
   });
 
-const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMessage, onNewChat, onStopGeneration }) => {
+const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopGeneration }) => {
   const [input, setInput] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'liked' | 'disliked'>>({});
 
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
-  
-  const isSpeechRecognitionSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSpeechSynthesisSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
+  
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Speech recognition setup
   useEffect(() => {
-    if (!isSpeechRecognitionSupported) return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'or-IN';
-    recognition.interimResults = true;
-    recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      for (let i = 0; i < event.results.length; ++i) {
-        finalTranscript += event.results[i][0].transcript;
-      }
-      setInput(finalTranscript);
-    };
-    recognition.onend = () => setIsRecording(false);
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsRecording(false);
+    if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        const scrollHeight = textareaRef.current.scrollHeight;
+        textareaRef.current.style.height = `${scrollHeight}px`;
     }
-    recognitionRef.current = recognition;
-    return () => recognition.stop();
-  }, [isSpeechRecognitionSupported]);
+  }, [input]);
 
-  // Speech synthesis cleanup
   useEffect(() => {
     return () => {
       if (isSpeechSynthesisSupported) window.speechSynthesis.cancel();
     };
   }, [isSpeechSynthesisSupported]);
   
-  const handleToggleRecording = () => {
-    if (!recognitionRef.current) return;
-    if (isRecording) {
-      recognitionRef.current.stop();
-    } else {
-      setInput('');
-      recognitionRef.current.start();
-    }
-    setIsRecording(!isRecording);
-  };
-
   const handleSpeak = (textToSpeak: string, messageId: string) => {
     if (!isSpeechSynthesisSupported) return;
     if (speakingMessageId === messageId) {
@@ -132,7 +88,7 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
         return;
       }
       setFile(selectedFile);
-      setFilePreview(selectedFile.type.startsWith('image/') || selectedFile.type.startsWith('video/') ? URL.createObjectURL(selectedFile) : 'document');
+      setFilePreview(URL.createObjectURL(selectedFile));
     }
   };
 
@@ -159,7 +115,6 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
     e.preventDefault();
     if ((!input.trim() && !file) || isLoading) return;
 
-    if (isRecording) recognitionRef.current?.stop();
     if (speakingMessageId) window.speechSynthesis.cancel();
     
     setFileError(null);
@@ -167,7 +122,7 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
     let filePayload: { data: string; mimeType: string, name: string, previewUrl: string } | undefined = undefined;
     if (file && filePreview) {
       try {
-        const base64Data = await fileToBase64(file, setUploadProgress);
+        const base64Data = await fileToBase64(file);
         filePayload = { data: base64Data, mimeType: file.type, name: file.name, previewUrl: filePreview };
       } catch (error) {
         console.error("Error processing file:", error);
@@ -179,7 +134,6 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
     const currentInput = input;
     setInput('');
     removeFile();
-    setUploadProgress(0);
 
     await onSendMessage(currentInput, filePayload);
   };
@@ -187,141 +141,128 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, isLoading, onSendMes
   const renderFilePreview = (file: ChatMessage['file']) => {
     if (!file) return null;
     const { type, previewUrl, name } = file;
-    if (type.startsWith('image/')) return <img src={previewUrl} alt={name} className="max-h-60 rounded-lg mt-2" />;
-    if (type.startsWith('video/')) return <video src={previewUrl} controls className="max-h-60 rounded-lg mt-2" />;
+    if (type.startsWith('image/')) return <img src={previewUrl} alt={name} className="max-h-60 rounded-lg mb-2" />;
     return (
-      <div className="bg-slate-700/50 p-3 rounded-lg mt-2 text-sm border border-slate-600 flex items-center gap-3">
+      <div className="bg-gray-100 p-3 rounded-lg mb-2 text-sm border border-gray-200 flex items-center gap-3 dark:bg-gray-700 dark:border-gray-600">
         <DocumentIcon />
-        <p className="font-semibold">{name}</p>
+        <p className="font-semibold text-gray-700 dark:text-gray-300">{name}</p>
       </div>
     );
   };
+  
+  const MarkdownComponents = {
+        h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100" {...props} />,
+        h2: ({ node, ...props }) => <h2 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100" {...props} />,
+        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+        ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-1 pl-4 mb-2" {...props} />,
+        ol: ({ node, ...props }) => <ol className="list-decimal list-inside space-y-1 pl-4 mb-2" {...props} />,
+        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+        blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2 text-gray-600 dark:border-gray-600 dark:text-gray-400" {...props} />,
+        code: ({ node, inline, children, ...props }) => {
+          return !inline ? (
+            <pre className="bg-gray-800 text-white p-3 rounded-md my-2 overflow-x-auto text-sm font-mono dark:bg-gray-900">
+              <code>{String(children).replace(/\n$/, '')}</code>
+            </pre>
+          ) : (
+            <code className="bg-gray-200 text-gray-800 px-1 py-0.5 rounded font-mono text-sm dark:bg-gray-700 dark:text-gray-200" {...props}>
+              {children}
+            </code>
+          );
+        },
+        a: ({ node, ...props }) => <a className="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noopener noreferrer" {...props} />,
+        table: ({ node, ...props }) => <table className="table-auto w-full my-2 text-sm border-collapse border border-gray-300 dark:border-gray-600" {...props} />,
+        thead: ({ node, ...props }) => <thead className="bg-gray-100 dark:bg-gray-700" {...props} />,
+        th: ({ node, ...props }) => <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-800 dark:border-gray-600 dark:text-gray-200" {...props} />,
+        td: ({ node, ...props }) => <td className="border border-gray-300 px-3 py-2 dark:border-gray-600" {...props} />,
+  }
 
   return (
-    <div className="flex flex-col h-full flex-grow bg-slate-900/50 rounded-xl shadow-2xl border border-slate-700/50">
-        <div className="p-3 border-b border-slate-700/50 flex justify-between items-center flex-shrink-0">
-          <h2 className="font-bold text-lg text-slate-200">ଗପସପ (Chat)</h2>
-          {currentUser && (
-            <button
-              onClick={onNewChat}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Start new chat"
-            >
-              <PlusIcon />
-              <span className="hidden sm:inline">ନୂଆ ଚାଟ୍</span>
-            </button>
-          )}
-        </div>
-        <div className="flex-grow p-4 sm:p-6 space-y-4 overflow-y-auto">
-          {messages.map((msg) => (
-            <div key={msg.id}>
-              {msg.sender === 'bot' && (msg.mode || (isLoading && messages[messages.length-1].id === msg.id)) && (
-                <div className="flex justify-start ml-11 mb-1">
-                  {isLoading && messages[messages.length-1].id === msg.id ? (
-                      <span className="text-xs text-cyan-400 opacity-80 px-2 py-0.5 bg-slate-700/60 rounded-md font-medium animate-pulse">
-                          ଚିନ୍ତା କରୁଛି...
-                      </span>
-                  ) : msg.mode ? (
-                      <span className="text-xs text-cyan-400 opacity-80 px-2 py-0.5 bg-slate-700/60 rounded-md font-medium">
-                          {msg.mode === 'fast' ? '⚡️ Fast Mode' : '🧠 Expert Mode'}
-                      </span>
-                  ) : null}
+    <div className="h-full flex flex-col">
+        <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto px-4 pt-8 pb-32">
+          <div className="space-y-6">
+            {messages.map((msg, index) => (
+              <div key={msg.id} className={`flex items-start gap-4 fade-in ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className="flex-shrink-0 w-8 h-8">
+                  {msg.sender === 'bot' ? <SatyashreeIcon /> : <UserIcon />}
                 </div>
-              )}
-              <div className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.sender === 'bot' && <div className={`w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center font-bold text-cyan-400 text-lg ${isLoading && messages[messages.length - 1].id === msg.id ? 'animate-pulse-glow' : ''}`}>ସ</div>}
-                <div className={`max-w-md md:max-w-lg p-4 rounded-2xl shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white' : 'bg-slate-800 text-slate-200'}`}>
-                  {msg.file && renderFilePreview(msg.file)}
-                  <div className={`text-[15px] ${msg.file ? 'mt-2' : ''}`} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.625' }}>
-                    {msg.text}
-                    {msg.sender === 'bot' && isLoading && messages[messages.length-1].id === msg.id && <span className="blinking-cursor"></span>}
-                  </div>
-                </div>
-                {msg.sender === 'user' && <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center font-bold text-white text-lg">{currentUser ? currentUser.charAt(0).toUpperCase() : 'ଆ'}</div>}
-              </div>
-              {msg.sender === 'bot' && isLoading && messages[messages.length - 1].id === msg.id && (
-                  <div className="flex items-center mt-2 ml-11">
-                      <button
-                          onClick={onStopGeneration}
-                          className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
-                      >
-                          <StopIcon />
-                          <span>ବନ୍ଦ କରନ୍ତୁ</span>
-                      </button>
-                  </div>
-              )}
-              {msg.sender === 'bot' && !isLoading && msg.text && (
-                  <div className="flex gap-2 items-center mt-2 ml-11">
-                      <button onClick={() => handleFeedback(msg.id, 'liked')} disabled={!!feedbackMap[msg.id]} className="disabled:opacity-50"><ThumbsUpIcon className={feedbackMap[msg.id] === 'liked' ? 'text-cyan-400' : 'text-slate-500 hover:text-white'}/></button>
-                      <button onClick={() => handleFeedback(msg.id, 'disliked')} disabled={!!feedbackMap[msg.id]} className="disabled:opacity-50"><ThumbsDownIcon className={feedbackMap[msg.id] === 'disliked' ? 'text-red-400' : 'text-slate-500 hover:text-white'}/></button>
-                      {isSpeechSynthesisSupported && <button onClick={() => handleSpeak(msg.text, msg.id)}><SpeakerIcon className={speakingMessageId === msg.id ? 'text-cyan-400 animate-pulse' : 'text-slate-500 hover:text-white'}/></button>}
-                      <button onClick={() => handleCopy(msg.text, msg.id)} disabled={copiedMessageId === msg.id} className="flex items-center">{copiedMessageId === msg.id ? <><CheckIcon className="text-green-400" /><span className="text-xs text-green-400 ml-1">Copied!</span></> : <CopyIcon className="text-slate-500 hover:text-white"/>}</button>
-                      {feedbackMap[msg.id] && <p className="text-xs text-slate-400">ପ୍ରତିକ୍ରିୟା ପାଇଁ ଧନ୍ୟବାଦ!</p>}
-                  </div>
-              )}
-              {msg.sender === 'bot' && msg.groundingChunks && msg.groundingChunks.length > 0 && (
-                  <div className="ml-11 mt-3 max-w-md md:max-w-lg">
-                    <h3 className="font-semibold text-cyan-400 mb-2 text-sm">ଉତ୍ସଗୁଡ଼ିକ (Sources):</h3>
-                    <div className="grid grid-cols-1 gap-2">
-                      {msg.groundingChunks.map((chunk, index) => {
-                        const source = chunk.web;
-                        if (!source) return null;
-                        return (
-                          <a
-                            key={`web-src-${index}`}
-                            href={source.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block p-2.5 rounded-lg border border-slate-700 bg-slate-800/60 transition-colors hover:bg-slate-700/80"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex-shrink-0 text-cyan-400 pt-0.5">
-                                <LinkIcon />
-                              </div>
-                              <div className="overflow-hidden">
-                                <h4 className="font-semibold text-xs text-cyan-300 truncate">
-                                  {source.title || 'Untitled Source'}
-                                </h4>
-                                <p className="text-xs text-slate-400 truncate opacity-80">
-                                  {source.uri}
-                                </p>
-                              </div>
+                
+                <div className={`max-w-xl p-4 rounded-xl shadow-sm text-gray-800 leading-relaxed dark:text-gray-200 ${
+                    msg.sender === 'user'
+                    ? 'bg-white border border-gray-200 dark:bg-gray-700 dark:border-gray-600'
+                    : 'bg-white border border-gray-200 dark:bg-gray-700 dark:border-gray-600'
+                }`}>
+                    {msg.file && renderFilePreview(msg.file)}
+                    <div className="text-base space-y-2">
+                        {msg.sender === 'user' ? msg.text : (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
+                                {msg.text}
+                            </ReactMarkdown>
+                        )}
+                        {isLoading && index === messages.length - 1 && (
+                            <div className="typing-indicator">
+                                <span></span><span></span><span></span>
                             </div>
-                          </a>
-                        );
-                      })}
+                        )}
                     </div>
-                  </div>
-              )}
-            </div>
-          ))}
-          {!currentUser && messages.length > 0 && messages.every(m => m.sender === 'bot') && !isLoading && (
-            <div className="text-center text-slate-400 mt-8"><p className="text-sm mt-4">ଚାଟ୍ ଇତିହାସ ସଞ୍ଚୟ କରିବାକୁ ସାଇନ୍ ଇନ୍ କରନ୍ତୁ।</p></div>
-          )}
+                    {msg.sender === 'bot' && !isLoading && msg.text && (
+                        <div className="flex gap-2 items-center mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <button onClick={() => handleFeedback(msg.id, 'liked')} disabled={!!feedbackMap[msg.id]} className="disabled:opacity-50"><ThumbsUpIcon className={feedbackMap[msg.id] === 'liked' ? 'text-blue-500' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}/></button>
+                            <button onClick={() => handleFeedback(msg.id, 'disliked')} disabled={!!feedbackMap[msg.id]} className="disabled:opacity-50"><ThumbsDownIcon className={feedbackMap[msg.id] === 'disliked' ? 'text-red-500' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}/></button>
+                            {isSpeechSynthesisSupported && <button onClick={() => handleSpeak(msg.text, msg.id)}><SpeakerIcon className={speakingMessageId === msg.id ? 'text-blue-500' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}/></button>}
+                            <button onClick={() => handleCopy(msg.text, msg.id)} disabled={copiedMessageId === msg.id} className="flex items-center">{copiedMessageId === msg.id ? <CheckIcon className="text-green-500" /> : <CopyIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"/>}</button>
+                        </div>
+                    )}
+                </div>
+              </div>
+            ))}
+          </div>
           <div ref={messagesEndRef} />
         </div>
-        <div className="p-4 bg-slate-900/30 border-t border-slate-700/50 backdrop-blur-sm">
-          {fileError && <p className="text-red-400 text-sm text-center mb-2">{fileError}</p>}
-          {uploadProgress > 0 && uploadProgress < 100 && <div className="mb-2 h-2 rounded-full bg-slate-700 overflow-hidden"><div className="h-full bg-cyan-500" style={{width: `${uploadProgress}%`}}></div></div>}
-          {filePreview && (
-            <div className="relative mb-3 p-2 bg-slate-700/50 rounded-lg border border-slate-600">
-              <div className="flex items-start gap-3">
-                {file?.type.startsWith('image/') ? <img src={filePreview} alt="preview" className="h-16 w-16 object-cover rounded-md" /> : file?.type.startsWith('video/') ? <video src={filePreview} className="h-16 w-16 object-cover rounded-md" /> : <div className="h-16 w-16 bg-slate-600 rounded-md flex items-center justify-center"><DocumentIcon /></div>}
-                <div className="text-sm flex-grow pt-1 overflow-hidden"><p className="font-semibold truncate">{file?.name}</p><p className="text-xs text-slate-400">{file && (file.size / 1024 / 1024).toFixed(2)} MB</p></div>
-              </div>
-              <button onClick={removeFile} className="absolute top-1 right-1 bg-slate-800/50 rounded-full p-1 text-white hover:bg-slate-800"><CloseIcon /></button>
+        
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-50/80 backdrop-blur-md dark:bg-gray-900/80">
+            <div className="max-w-4xl mx-auto px-4 py-3">
+                {isLoading && (
+                    <div className="flex justify-center mb-2">
+                         <button
+                            onClick={onStopGeneration}
+                            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                            <StopIcon />
+                            <span>Stop generating</span>
+                        </button>
+                    </div>
+                )}
+                {filePreview && (
+                    <div className="relative mb-2 p-2 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                            {file?.type.startsWith('image/') ? <img src={filePreview} alt="preview" className="h-12 w-12 object-cover rounded-md" /> : <div className="h-12 w-12 bg-gray-100 rounded-md flex items-center justify-center dark:bg-gray-700"><DocumentIcon /></div>}
+                            <div className="text-sm flex-grow overflow-hidden"><p className="font-semibold truncate dark:text-gray-200">{file?.name}</p><p className="text-xs text-gray-500 dark:text-gray-400">{file && (file.size / 1024 / 1024).toFixed(2)} MB</p></div>
+                        </div>
+                        <button onClick={removeFile} className="absolute top-1 right-1 bg-gray-200/50 rounded-full p-1 text-gray-600 hover:bg-gray-300 dark:bg-gray-600/50 dark:text-gray-300 dark:hover:bg-gray-500"><CloseIcon /></button>
+                    </div>
+                )}
+                <form onSubmit={handleSubmit} className="relative flex items-center">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-gray-500 p-2 rounded-full hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700" disabled={isLoading} aria-label="Attach file">
+                        <PaperclipIcon />
+                    </button>
+                    <textarea 
+                        ref={textareaRef}
+                        value={input} 
+                        onChange={(e) => setInput(e.target.value)} 
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
+                        placeholder="ଏକ ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..." 
+                        className="flex-grow bg-white text-gray-800 placeholder-gray-500 py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl border border-gray-300 shadow-sm transition resize-none dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-400 dark:border-gray-600 dark:focus:ring-blue-500" 
+                        disabled={isLoading}
+                        rows={1}
+                        style={{ maxHeight: '200px', paddingRight: '44px' }}
+                    />
+                    <button type="submit" disabled={isLoading || (!input.trim() && !file)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 dark:disabled:bg-gray-500" aria-label="Send message">
+                        <SendIcon className="h-5 w-5"/>
+                    </button>
+                </form>
+                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"/>
+                 <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">Satyashree can make mistakes. Consider checking important information.</p>
             </div>
-          )}
-          <form onSubmit={handleSubmit} className="flex items-center">
-              <div className="flex-grow flex items-center bg-slate-800 rounded-full focus-within:ring-2 focus-within:ring-cyan-400 transition">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="text-slate-400 p-3 rounded-full hover:text-cyan-400 ml-1" disabled={isLoading}><PaperclipIcon /></button>
-                  {isSpeechRecognitionSupported && <button type="button" onClick={handleToggleRecording} className={`text-slate-400 p-3 rounded-full ${isRecording ? 'bg-red-500/20 text-red-400 animate-pulse' : ''}`} disabled={isLoading}><MicrophoneIcon /></button>}
-                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="ଏକ ଫାଇଲ୍, ଭିଡିଓ ଲିଙ୍କ୍, କିମ୍ବା ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..." className="flex-grow bg-transparent text-white placeholder-slate-400 py-3 px-2 focus:outline-none" disabled={isLoading}/>
-                  <button type="submit" disabled={isLoading || (!input.trim() && !file)} className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-3 rounded-full hover:opacity-90 disabled:from-slate-600 disabled:opacity-70 disabled:cursor-not-allowed mr-1"><SendIcon /></button>
-              </div>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"/>
-          </form>
         </div>
     </div>
   );
