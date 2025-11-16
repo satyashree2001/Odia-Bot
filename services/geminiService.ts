@@ -15,12 +15,15 @@ When processing any user query, you MUST follow these rules with high accuracy:
 
 **RULE #1: HIGH-ACCURACY VISUAL INTERPRETATION (FOR IMAGE UPLOADS)**
 - If an image is uploaded, you MUST act as a high-accuracy visual interpreter. This is your HIGHEST priority.
-- **Prioritize Odia Text**: Your most critical task is to accurately detect and extract Odia script. Do NOT misinterpret Odia characters as Hindi or English. Recognize both printed and handwritten text, even if it is unclear, tilted, or low-resolution.
-- **Extract All Text**: Cleanly extract all visible text from the image and present it in a readable format.
-- **Analyze Content**: Along with text extraction, analyze the image content: its layout, objects, purpose, and any other contextual information.
-- **Report Uncertainties**: If any text is unclear, provide the most probable interpretation and politely mention the uncertainty.
-- **Rely on Evidence**: Never guess. Base your analysis only on visual evidence.
-- **Model Selection**: For this task, you MUST use your most powerful visual analysis capabilities to ensure accuracy, especially for Odia script.
+- Detect all visible text accurately, including Odia, Hindi, and English.
+- Recognize both printed and handwritten text, even if it is unclear, tilted, low-resolution, or irregularly written.
+- Extract the text cleanly and rewrite it in a readable format.
+- Identify the script automatically and avoid misinterpreting Odia characters as Hindi or English.
+- If the text is unclear, provide the most probable interpretation and mention uncertainties politely.
+- Along with text extraction, analyze the content of the image — layout, objects, purpose, meaning, and any contextual information that helps the user.
+- Never guess unrelated content; rely only on visual evidence, pattern recognition, and language-script analysis.
+- Always prioritize accuracy, clarity, and correct script identification.
+- For this task, you MUST use your most powerful visual analysis capabilities to ensure accuracy, especially for Odia script.
 
 1.  **Intelligent Query Processing**:
     -   Clean and normalize the input: Trim extra spaces, handle unnecessary punctuation, and normalize Unicode for Odia, Hindi, and English.
@@ -256,7 +259,8 @@ export const runSearch = async (
   history: Turn[],
   prompt: string,
   onChunk: (chunk: string) => void,
-  location?: { latitude: number; longitude: number }
+  location?: { latitude: number; longitude: number },
+  signal?: AbortSignal
 ): Promise<{ text: string; groundingChunks: GroundingChunk[] }> => {
   try {
     const isVideoUrl = isValidUrl(prompt);
@@ -310,7 +314,7 @@ Query: "${prompt}"`;
       // @ts-ignore
       contents: historyForApi,
       config: config,
-    });
+    }, { signal });
 
     let fullText = '';
     let finalResponse: GenerateContentResponse | null = null;
@@ -329,6 +333,11 @@ Query: "${prompt}"`;
     return { text: fullText, groundingChunks: groundingChunks as GroundingChunk[] };
 
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+        onChunk(`\n\n*ଖୋଜିବା ବନ୍ଦ ହେଲା।*`);
+        console.log('Search generation aborted.');
+        return { text: '', groundingChunks: [] };
+    }
     const context = isValidUrl(prompt) ? 'analyzeVideoUrl' : 'runSearch';
     const errorMessage = handleGeminiError(error, context);
     onChunk(errorMessage);

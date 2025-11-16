@@ -181,10 +181,12 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
         <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto px-4 pt-8 pb-32">
           <div className="space-y-6">
             {messages.map((msg, index) => (
-              <div key={msg.id} className={`flex items-start gap-4 fade-in ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className="flex-shrink-0 w-8 h-8">
-                  {msg.sender === 'bot' ? <SatyashreeIcon /> : <UserIcon />}
-                </div>
+              <div key={msg.id} className={`w-full flex items-start gap-4 fade-in ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.sender === 'bot' && (
+                  <div className="flex-shrink-0 w-8 h-8">
+                    <SatyashreeIcon />
+                  </div>
+                )}
                 
                 <div className={`max-w-xl p-4 rounded-xl shadow-sm text-gray-800 leading-relaxed dark:text-gray-200 ${
                     msg.sender === 'user'
@@ -213,6 +215,12 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
                         </div>
                     )}
                 </div>
+
+                {msg.sender === 'user' && (
+                  <div className="flex-shrink-0 w-8 h-8">
+                    <UserIcon />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -221,17 +229,6 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
         
         <div className="fixed bottom-0 left-0 right-0 bg-gray-50/80 backdrop-blur-md dark:bg-gray-900/80">
             <div className="max-w-4xl mx-auto px-4 py-3">
-                {isLoading && (
-                    <div className="flex justify-center mb-2">
-                         <button
-                            onClick={onStopGeneration}
-                            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >
-                            <StopIcon />
-                            <span>Stop generating</span>
-                        </button>
-                    </div>
-                )}
                 {filePreview && (
                     <div className="relative mb-2 p-2 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                         <div className="flex items-center gap-3">
@@ -241,8 +238,8 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
                         <button onClick={removeFile} className="absolute top-1 right-1 bg-gray-200/50 rounded-full p-1 text-gray-600 hover:bg-gray-300 dark:bg-gray-600/50 dark:text-gray-300 dark:hover:bg-gray-500"><CloseIcon /></button>
                     </div>
                 )}
-                <form onSubmit={handleSubmit} className="relative flex items-center">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-gray-500 p-2 rounded-full hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700" disabled={isLoading} aria-label="Attach file">
+                <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-blue-500">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="pl-3 pr-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" disabled={isLoading} aria-label="Attach file">
                         <PaperclipIcon />
                     </button>
                     <textarea 
@@ -251,14 +248,32 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
                         onChange={(e) => setInput(e.target.value)} 
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
                         placeholder="ଏକ ବାର୍ତ୍ତା ଲେଖନ୍ତୁ..." 
-                        className="flex-grow bg-white text-gray-800 placeholder-gray-500 py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl border border-gray-300 shadow-sm transition resize-none dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-400 dark:border-gray-600 dark:focus:ring-blue-500" 
+                        className="flex-grow bg-transparent text-gray-800 placeholder-gray-500 py-3 px-2 focus:outline-none transition resize-none dark:text-gray-200 dark:placeholder-gray-400" 
                         disabled={isLoading}
                         rows={1}
-                        style={{ maxHeight: '200px', paddingRight: '44px' }}
+                        style={{ maxHeight: '200px' }}
                     />
-                    <button type="submit" disabled={isLoading || (!input.trim() && !file)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 dark:disabled:bg-gray-500" aria-label="Send message">
-                        <SendIcon className="h-5 w-5"/>
-                    </button>
+                    <div className="p-2">
+                        {isLoading ? (
+                            <button
+                                type="button"
+                                onClick={onStopGeneration}
+                                className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                aria-label="Stop generation"
+                            >
+                                <StopIcon className="h-5 w-5" />
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={!input.trim() && !file}
+                                className="bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 dark:disabled:bg-gray-500"
+                                aria-label="Send message"
+                            >
+                                <SendIcon className="h-5 w-5"/>
+                            </button>
+                        )}
+                    </div>
                 </form>
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"/>
                  <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">Satyashree can make mistakes. Consider checking important information.</p>

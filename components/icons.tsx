@@ -36,9 +36,9 @@ export const SendIcon: React.FC<{className?: string}> = ({className}) => (
     </svg>
 );
 
-export const StopIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M6 6h12v12H6z"/>
+export const StopIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="currentColor">
+        <rect width="12" height="12" x="6" y="6"></rect>
     </svg>
 );
 

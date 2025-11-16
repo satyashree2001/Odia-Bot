@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type GroundingChunk } from '../types';
 import { runSearch } from '../services/geminiService';
-import { SendIcon, LinkIcon, MapPinIcon, SearchIcon, UserIcon, SatyashreeIcon } from './icons';
+import { SendIcon, LinkIcon, MapPinIcon, SearchIcon, UserIcon, SatyashreeIcon, StopIcon } from './icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -27,6 +27,7 @@ const Search: React.FC = () => {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,6 +65,7 @@ const Search: React.FC = () => {
   const handleSearch = async (currentPrompt: string) => {
     if (!currentPrompt.trim() || isLoading) return;
     setIsLoading(true);
+    abortControllerRef.current = new AbortController();
     
     const historyForApi = conversation.map(({ role, text }) => ({ role, text }));
     const newUserTurn: Turn = { role: 'user', text: currentPrompt };
@@ -82,7 +84,7 @@ const Search: React.FC = () => {
         });
       };
       
-      const result = await runSearch(historyForApi, currentPrompt, onChunk, location ?? undefined);
+      const result = await runSearch(historyForApi, currentPrompt, onChunk, location ?? undefined, abortControllerRef.current.signal);
 
       setConversation(prev => {
           const newConversation = [...prev];
@@ -95,7 +97,12 @@ const Search: React.FC = () => {
       });
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
+  };
+  
+  const handleStopGeneration = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -139,22 +146,30 @@ const Search: React.FC = () => {
         <div className="space-y-6">
             {conversation.map((turn, index) => (
               <div key={index}>
-                <div className={`flex items-start gap-4 fade-in ${turn.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-full flex items-start gap-4 fade-in ${turn.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {turn.role === 'model' && (
                     <div className="flex-shrink-0 w-8 h-8">
-                        {turn.role === 'model' ? <SatyashreeIcon /> : <UserIcon />}
+                      <SatyashreeIcon />
                     </div>
+                  )}
                     
-                    <div className={`max-w-xl p-4 rounded-xl shadow-sm text-gray-800 leading-relaxed bg-white border border-gray-200 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600`}>
-                        {isLoading && index === conversation.length - 1 ? (
-                            <div className="typing-indicator"><span></span><span></span><span></span></div>
-                        ) : (
-                            <div className="text-base space-y-2">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                                    {turn.text}
-                                </ReactMarkdown>
-                            </div>
-                        )}
+                  <div className={`max-w-xl p-4 rounded-xl shadow-sm text-gray-800 leading-relaxed bg-white border border-gray-200 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600`}>
+                      {isLoading && index === conversation.length - 1 ? (
+                          <div className="typing-indicator"><span></span><span></span><span></span></div>
+                      ) : (
+                          <div className="text-base space-y-2">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
+                                  {turn.text}
+                              </ReactMarkdown>
+                          </div>
+                      )}
+                  </div>
+
+                  {turn.role === 'user' && (
+                      <div className="flex-shrink-0 w-8 h-8">
+                      <UserIcon />
                     </div>
+                  )}
                 </div>
 
                 {turn.role === 'model' && turn.chunks && turn.chunks.length > 0 && (
@@ -187,21 +202,39 @@ const Search: React.FC = () => {
       
       <div className="fixed bottom-0 left-0 right-0 bg-gray-50/80 backdrop-blur-md dark:bg-gray-900/80">
         <div className="max-w-4xl mx-auto px-4 py-3">
-            <form onSubmit={handleSubmit} className="relative flex items-center">
+            <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-blue-500">
                 <textarea 
                     ref={textareaRef}
                     value={prompt} 
                     onChange={(e) => setPrompt(e.target.value)} 
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
                     placeholder="ଏକ ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ..." 
-                    className="flex-grow bg-white text-gray-800 placeholder-gray-500 py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl border border-gray-300 shadow-sm transition resize-none dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-400 dark:border-gray-600 dark:focus:ring-blue-500" 
+                    className="flex-grow bg-transparent text-gray-800 placeholder-gray-500 py-3 px-4 focus:outline-none transition resize-none dark:text-gray-200 dark:placeholder-gray-400" 
                     disabled={isLoading}
                     rows={1}
-                    style={{ maxHeight: '200px', paddingRight: '44px' }}
+                    style={{ maxHeight: '200px' }}
                 />
-                <button type="submit" disabled={isLoading || !prompt.trim()} className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 dark:disabled:bg-gray-500" aria-label="Send message">
-                    <SendIcon className="h-5 w-5"/>
-                </button>
+                <div className="p-2">
+                  {isLoading ? (
+                    <button
+                      type="button"
+                      onClick={handleStopGeneration}
+                      className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                      aria-label="Stop generation"
+                    >
+                      <StopIcon className="h-5 w-5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!prompt.trim()}
+                      className="bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 dark:disabled:bg-gray-500"
+                      aria-label="Send message"
+                    >
+                      <SendIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
             </form>
             <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">Satyashree can make mistakes. Consider checking important information.</p>
         </div>
