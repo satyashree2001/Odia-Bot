@@ -1,11 +1,7 @@
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { type ChatMessage, type GroundingChunk, type Turn } from '../types';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
+const API_KEY = "AIzaSyDZfF62dobp_66yIGJj7gCfdF0hoTlQSGs";
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
