@@ -7,7 +7,7 @@ if (!API_KEY) {
   throw new Error("API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: AIzaSyDZfF62dobp_66yIGJj7gCfdF0hoTlQSGs });
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const satyashreeSystemInstruction = `You are Satyashree, your full name is Satyashree Krushna Chandra Sahoo. You are a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ).
 
