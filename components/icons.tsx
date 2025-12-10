@@ -42,10 +42,16 @@ export const StopIcon: React.FC<{className?: string}> = ({className}) => (
     </svg>
 );
 
-export const CameraIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+export const CameraIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="currentColor">
         <circle cx="12" cy="12" r="3.2"/>
         <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+    </svg>
+);
+
+export const SwitchCameraIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
     </svg>
 );
 
@@ -55,9 +61,9 @@ export const UserIcon: React.FC = () => (
     </svg>
 );
 
-export const SatyashreeIcon: React.FC<{className?: string}> = ({className}) => (
-    <div className={`flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white ${className || 'h-8 w-8'}`}>
-      <span className="font-bold text-lg">ସ</span>
+export const OdiaBotIcon: React.FC<{className?: string}> = ({className}) => (
+    <div className={`flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white ${className || 'h-8 w-8'}`}>
+      <span className="font-bold text-lg pb-1">ଓ</span>
     </div>
 );
 
@@ -185,5 +191,17 @@ export const SunIcon: React.FC<{className?: string}> = ({className = "h-6 w-6"})
 export const MoonIcon: React.FC<{className?: string}> = ({className = "h-6 w-6"}) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+);
+
+export const AudioFileIcon: React.FC<{className?: string}> = ({className = "h-10 w-10"}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l7-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm7-13c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 6l7-3" />
+    </svg>
+);
+
+export const LiveRecordIcon: React.FC<{className?: string}> = ({className = "h-12 w-12"}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
     </svg>
 );

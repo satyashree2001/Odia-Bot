@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAiBlob, LiveSession } from '@google/genai';
 import { encode, decode, decodeAudioData } from '../utils/audioUtils';
-import { MicrophoneIcon, StopIcon, TrashIcon, UserIcon, SatyashreeIcon } from './icons';
+import { MicrophoneIcon, StopIcon, TrashIcon, UserIcon, OdiaBotIcon } from './icons';
 
 interface TranscriptionEntry {
   speaker: 'user' | 'bot';
@@ -29,7 +29,7 @@ const VoiceChat: React.FC = () => {
   const sourcesRef = useRef(new Set<AudioBufferSourceNode>());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const satyashreeSystemInstruction = `You are Satyashree. Your primary language is Odia (ଓଡ଼ିଆ). You MUST respond exclusively in Odia script and use natural, spoken Odia phrasing. Be helpful and friendly.`;
+  const odiaBotSystemInstruction = `You are OdiaBot. Your primary language is Odia (ଓଡ଼ିଆ). You MUST respond exclusively in Odia script and use natural, spoken Odia phrasing. Be helpful and friendly.`;
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,7 +98,7 @@ const VoiceChat: React.FC = () => {
       sessionPromiseRef.current = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: {
-          systemInstruction: satyashreeSystemInstruction,
+          systemInstruction: odiaBotSystemInstruction,
           responseModalities: [Modality.AUDIO],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
@@ -188,15 +188,15 @@ const VoiceChat: React.FC = () => {
       <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto px-4 pt-8 pb-48">
         {transcriptions.length === 0 && !currentUserText && !currentBotText && (
            <div className="flex flex-col justify-center items-center h-full text-gray-600 dark:text-gray-400 text-center p-4">
-             <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-4 dark:bg-gray-700"><SatyashreeIcon className="h-16 w-16"/></div>
-             <p className="mt-2 text-2xl font-medium text-gray-800 dark:text-gray-200">Satyashree Voice</p>
+             <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-4 dark:bg-gray-700"><OdiaBotIcon className="h-16 w-16"/></div>
+             <p className="mt-2 text-2xl font-medium text-gray-800 dark:text-gray-200">OdiaBot Voice</p>
              <p className="mt-1">ସେସନ୍ ଆରମ୍ଭ କରିବାକୁ ମାଇକ୍ ବଟନ୍ ଦବାନ୍ତୁ</p>
            </div>
         )}
         <div className="space-y-6">
             {transcriptions.map((entry, index) => (
             <div key={index} className={`flex items-start gap-4 fade-in ${entry.speaker === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className="flex-shrink-0 w-8 h-8">{entry.speaker === 'bot' ? <SatyashreeIcon /> : <UserIcon />}</div>
+                <div className="flex-shrink-0 w-8 h-8">{entry.speaker === 'bot' ? <OdiaBotIcon /> : <UserIcon />}</div>
                 <div className="max-w-xl p-4 rounded-xl bg-white border border-gray-200 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"><p>{entry.text || '...'}</p></div>
             </div>
             ))}
@@ -208,7 +208,7 @@ const VoiceChat: React.FC = () => {
             )}
             {currentBotText && (
                 <div className="flex items-start gap-4 opacity-70">
-                    <div className="flex-shrink-0 w-8 h-8"><SatyashreeIcon /></div>
+                    <div className="flex-shrink-0 w-8 h-8"><OdiaBotIcon /></div>
                     <div className="max-w-xl p-4 rounded-xl bg-white border border-gray-200 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"><p>{currentBotText}<span className="inline-block w-2 h-4 bg-gray-600 dark:bg-gray-400 animate-pulse ml-1"></span></p></div>
                 </div>
             )}

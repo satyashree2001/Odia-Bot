@@ -1,11 +1,15 @@
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { type ChatMessage, type GroundingChunk, type Turn } from '../types';
 
-const API_KEY = "AIzaSyB7wswkHN9OBz_cS2jVDOrLRa8B1iK_XX4";
+const API_KEY = process.env.API_KEY;
+
+if (!API_KEY) {
+  throw new Error("API_KEY environment variable not set");
+}
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const satyashreeSystemInstruction = `You are Satyashree, your full name is Satyashree Krushna Chandra Sahoo. You are a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ).
+const odiaBotSystemInstruction = `You are OdiaBot, a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ).
 
 When processing any user query, you MUST follow these rules with high accuracy:
 
@@ -61,7 +65,7 @@ When processing any user query, you MUST follow these rules with high accuracy:
     -   **Focus on Results**: For complex or heavy tasks, briefly summarize your process but focus on delivering the final, accurate results as quickly as possible.
     -   **Speed and Accuracy**: Your primary goal is to be fast without compromising the quality or accuracy of your response.`;
 
-const fastModeInstruction = `You are Satyashree. Respond concisely and directly in Odia, in 1-3 sentences. End by asking if the user needs more details.`;
+const fastModeInstruction = `You are OdiaBot. Respond concisely and directly in Odia, in 1-3 sentences. End by asking if the user needs more details.`;
 
 
 const handleGeminiError = (error: unknown, context: string, details?: { file?: any }): string => {
@@ -97,9 +101,10 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
                 ? 'କ୍ଷମା କରନ୍ତୁ, ଆପଣଙ୍କ ଫାଇଲ୍ ପ୍ରକ୍ରିୟାକରଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
                  : context === 'generateImage' 
                 ? 'କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ସୃଷ୍ଟି କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
-                // Fix: Add a specific error message for the 'analyzeImage' context.
                 : context === 'analyzeImage'
                 ? 'କ୍ଷମା କରନ୍ତୁ, ଚିତ୍ର ବିଶ୍ଳେଷଣ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
+                : context === 'transcribeAudio'
+                ? 'କ୍ଷମା କରନ୍ତୁ, ଅଡିଓ ଟ୍ରାନ୍ସକ୍ରାଇବ୍ କରିବାରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।'
                 : 'କ୍ଷମା କରନ୍ତୁ, ଚାଟ୍ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି ଘଟିଛି।';
     }
   }
@@ -107,7 +112,6 @@ const handleGeminiError = (error: unknown, context: string, details?: { file?: a
   return `${userMessage} ${tryAgain}`;
 };
 
-// Fix: Add the missing 'analyzeImageForText' function to be exported.
 export const analyzeImageForText = async (base64Data: string, mimeType: string): Promise<string> => {
   try {
     const userPrompt = `From the attached image, please extract all visible text with high accuracy, paying special attention to Odia script. Also, provide a brief analysis of the image's content. Please format your response clearly in Odia, using markdown headings for 'Extracted Text' and 'Image Analysis'.`;
@@ -127,7 +131,7 @@ export const analyzeImageForText = async (base64Data: string, mimeType: string):
       model: 'gemini-2.5-pro',
       contents: { parts: [imagePart, textPart] },
       config: {
-        systemInstruction: satyashreeSystemInstruction
+        systemInstruction: odiaBotSystemInstruction
       }
     });
     
@@ -139,6 +143,48 @@ export const analyzeImageForText = async (base64Data: string, mimeType: string):
   }
 };
 
+export const transcribeAudio = async (base64Data: string, mimeType: string): Promise<string> => {
+  try {
+    const prompt = `You are a speech-to-text engine specialized ONLY for Odia (ଓଡ଼ିଆ) transcription.
+Convert spoken Odia audio into pure Odia Unicode text.
+Never translate. Only transcribe EXACTLY what the speaker says.
+If an English word is spoken, keep it in English.
+Output ONLY the Odia transcription.`;
+
+    const audioPart = {
+      inlineData: {
+        data: base64Data,
+        mimeType: mimeType,
+      },
+    };
+
+    const textPart = {
+      text: prompt
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [audioPart, textPart] },
+    });
+
+    return response.text;
+  } catch (error) {
+    const errorMessage = handleGeminiError(error, 'transcribeAudio');
+    throw new Error(errorMessage);
+  }
+};
+
+const isValidUrl = (text: string): boolean => {
+    if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        return false;
+    }
+    try {
+        new URL(text);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
 
 export const runChat = async (
   history: ChatMessage[],
@@ -149,14 +195,16 @@ export const runChat = async (
 ): Promise<{ groundingChunks: GroundingChunk[] }> => {
   try {
     let mode: 'fast' | 'expert' = 'expert';
+    const trimmedPrompt = prompt.trim();
+    const isVideoUrl = !file && isValidUrl(trimmedPrompt);
 
-    // If there's a file, it's an expert task. Skip classification.
-    if (!file && prompt) {
+    // If there's a file or URL, it's an expert task. Skip classification.
+    if (!file && !isVideoUrl && prompt) {
       const classifierPrompt = `Classify the following user query as 'fast' or 'expert'. 
 'Fast' queries are simple facts, greetings, or short questions. 
 'Expert' queries are complex, require reasoning, creativity, or detailed explanation. 
 Respond with only the word 'fast' or 'expert'. 
-Query: "${prompt}"`;
+Query: "${trimmedPrompt}"`;
 
       const classificationResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -189,8 +237,9 @@ Query: "${prompt}"`;
     }
     contents.push({ role: 'user', parts: userParts });
 
-    const modelName = mode === 'fast' ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
-    const systemInstruction = mode === 'fast' ? fastModeInstruction : satyashreeSystemInstruction;
+    // Force pro model for video URLs to ensure better reasoning/analysis
+    const modelName = (mode === 'fast' && !isVideoUrl) ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
+    const systemInstruction = mode === 'fast' ? fastModeInstruction : odiaBotSystemInstruction;
 
     const config: any = {
         systemInstruction: systemInstruction,
@@ -199,6 +248,11 @@ Query: "${prompt}"`;
     // Use Google Search for all non-file queries to ensure up-to-date information.
     if (!file) {
         config.tools = [{googleSearch: {}}];
+    }
+
+    if (isVideoUrl) {
+        // Use thinking for video analysis to replicate the "Video Analyzer" feature depth
+        config.thinkingConfig = { thinkingBudget: 16000 };
     }
 
     const responseStream = await ai.models.generateContentStream({
@@ -239,18 +293,6 @@ Query: "${prompt}"`;
   }
 };
 
-const isValidUrl = (text: string): boolean => {
-    if (!text.startsWith('http://') && !text.startsWith('https://')) {
-        return false;
-    }
-    try {
-        new URL(text);
-        return true;
-    } catch (_) {
-        return false;
-    }
-};
-
 export const runSearch = async (
   history: Turn[],
   prompt: string,
@@ -268,11 +310,11 @@ export const runSearch = async (
     historyForApi.push({ role: 'user', parts: [{ text: prompt }] });
 
     let modelName = 'gemini-2.5-flash';
-    let config: any = { systemInstruction: satyashreeSystemInstruction };
+    let config: any = { systemInstruction: odiaBotSystemInstruction };
 
     if (isVideoUrl) {
       modelName = 'gemini-2.5-pro';
-      config.thinkingConfig = { thinkingBudget: 32768 };
+      config.thinkingConfig = { thinkingBudget: 16000 };
     } else {
       const classifierPrompt = `Classify the following user query as 'simple_search' or 'complex_query'. 
 'simple_search' queries are for facts, current events, or information that can be looked up. 
@@ -288,7 +330,7 @@ Query: "${prompt}"`;
       
       if (classification === 'complex_query') {
         modelName = 'gemini-2.5-pro';
-        config.thinkingConfig = { thinkingBudget: 32768 };
+        config.thinkingConfig = { thinkingBudget: 16000 };
       } else { // 'simple_search'
         const tools: any[] = [{ googleSearch: {} }];
         const toolConfig: any = {};
@@ -354,8 +396,6 @@ export const generateTitleForChat = async (prompt: string): Promise<string> => {
     return title || 'ନୂଆ ବାର୍ତ୍ତାଳାପ';
   } catch (error) {
     console.error('Error generating title:', error);
-    
     return 'ନୂଆ ବାର୍ତ୍ତାଳାପ'; 
   }
-  // टेस्ट: API की शुरूआत है - ${process.env.GEMINI_API_KEY?.slice(0,5)}
 };

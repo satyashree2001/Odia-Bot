@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon, SunIcon, MoonIcon } from './components/icons';
+import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon, SunIcon, MoonIcon, OdiaBotIcon } from './components/icons';
 import Chat from './components/Chat';
 import AuthModal from './components/AuthModal';
 import Welcome from './components/Welcome';
@@ -23,7 +23,7 @@ const getInitialMessage = (): ChatMessage => {
   return {
     id: crypto.randomUUID(),
     sender: 'bot',
-    text: `"${randomQuote}"\n\nନମସ୍କାର! ମୁଁ ସତ୍ୟଶ୍ରୀ। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?`,
+    text: `"${randomQuote}"\n\nନମସ୍କାର! ମୁଁ ଓଡ଼ିଆବଟ୍ (OdiaBot)। ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?`,
   };
 };
 
@@ -33,7 +33,7 @@ type Theme = 'light' | 'dark';
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(!sessionStorage.getItem('satyashree_welcome_seen'));
+  const [showWelcome, setShowWelcome] = useState(!sessionStorage.getItem('odiabot_welcome_seen'));
   const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>('chat');
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
@@ -47,7 +47,7 @@ const App: React.FC = () => {
   
   // Theme management
   useEffect(() => {
-    const savedTheme = localStorage.getItem('satyashree_theme') as Theme;
+    const savedTheme = localStorage.getItem('odiabot_theme') as Theme;
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (savedTheme) {
       setTheme(savedTheme);
@@ -62,7 +62,7 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('satyashree_theme', theme);
+    localStorage.setItem('odiabot_theme', theme);
   }, [theme]);
 
   const handleThemeToggle = () => {
@@ -72,7 +72,7 @@ const App: React.FC = () => {
 
   // Load user and conversations
   useEffect(() => {
-    const savedUser = localStorage.getItem('satyashree_currentUser');
+    const savedUser = localStorage.getItem('odiabot_currentUser');
     if (savedUser) {
       setCurrentUser(savedUser);
       loadConversations(savedUser);
@@ -82,8 +82,8 @@ const App: React.FC = () => {
   }, []);
   
   const loadConversations = (user: string) => {
-    const savedConversations = localStorage.getItem(`satyashree_conversations_${user}`);
-    const savedActiveId = localStorage.getItem(`satyashree_activeConversationId_${user}`);
+    const savedConversations = localStorage.getItem(`odiabot_conversations_${user}`);
+    const savedActiveId = localStorage.getItem(`odiabot_activeConversationId_${user}`);
     
     if (savedConversations) {
       try {
@@ -110,14 +110,14 @@ const App: React.FC = () => {
   // Save conversations
   useEffect(() => {
     if (currentUser && Object.keys(conversations).length > 0) {
-      localStorage.setItem(`satyashree_conversations_${currentUser}`, JSON.stringify(conversations));
+      localStorage.setItem(`odiabot_conversations_${currentUser}`, JSON.stringify(conversations));
       if (activeConversationId) {
-        localStorage.setItem(`satyashree_activeConversationId_${currentUser}`, activeConversationId);
+        localStorage.setItem(`odiabot_activeConversationId_${currentUser}`, activeConversationId);
       }
     } else if (currentUser && Object.keys(conversations).length === 0) {
       // If all conversations are deleted, remove the item from local storage
-      localStorage.removeItem(`satyashree_conversations_${currentUser}`);
-      localStorage.removeItem(`satyashree_activeConversationId_${currentUser}`);
+      localStorage.removeItem(`odiabot_conversations_${currentUser}`);
+      localStorage.removeItem(`odiabot_activeConversationId_${currentUser}`);
     }
   }, [conversations, activeConversationId, currentUser]);
 
@@ -277,14 +277,14 @@ const App: React.FC = () => {
   };
 
   const handleDismissWelcome = () => {
-    sessionStorage.setItem('satyashree_welcome_seen', 'true');
+    sessionStorage.setItem('odiabot_welcome_seen', 'true');
     setShowWelcome(false);
   };
 
   const signIn = (username: string) => {
     const trimmedUsername = username.trim();
     if (trimmedUsername) {
-      localStorage.setItem('satyashree_currentUser', trimmedUsername);
+      localStorage.setItem('odiabot_currentUser', trimmedUsername);
       setCurrentUser(trimmedUsername);
       setIsAuthModalOpen(false);
       loadConversations(trimmedUsername);
@@ -292,7 +292,7 @@ const App: React.FC = () => {
   };
 
   const signOut = () => {
-    localStorage.removeItem('satyashree_currentUser');
+    localStorage.removeItem('odiabot_currentUser');
     setCurrentUser(null);
     setConversations({});
     setActiveConversationId(null);
@@ -354,7 +354,8 @@ const App: React.FC = () => {
 
             <div className="relative">
                 <button onClick={() => setIsModeDropdownOpen(prev => !prev)} className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    <span>Satyashree</span>
+                    <OdiaBotIcon className="h-6 w-6" />
+                    <span>OdiaBot</span>
                     <span className="text-gray-500 text-sm dark:text-gray-400">({modes[activeMode].name})</span>
                     <svg className={`w-4 h-4 text-gray-500 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>

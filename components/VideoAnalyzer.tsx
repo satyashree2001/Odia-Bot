@@ -42,8 +42,8 @@ const VideoAnalyzer: React.FC = () => {
         {summary === null && !isLoading && !error && (
            <div className="flex flex-col justify-center items-center h-full text-center text-slate-400">
              <h2 className="text-2xl font-bold text-cyan-400 mb-2">ଭିଡିଓ ବିଶ୍ଳେଷଣ</h2>
-             <p>ଏକ ଭିଡିଓ ଲିଙ୍କ୍ ପେଷ୍ଟ୍ କରନ୍ତୁ ଏବଂ ସତ୍ୟଶ୍ରୀ ଏହାର ଏକ ସାରାଂଶ ପ୍ରଦାନ କରିବ।</p>
-             <p className="text-sm mt-1">(Paste a video link and Satyashree will provide a summary)</p>
+             <p>ଏକ ଭିଡିଓ ଲିଙ୍କ୍ ପେଷ୍ଟ୍ କରନ୍ତୁ ଏବଂ ଓଡ଼ିଆବଟ୍ ଏହାର ଏକ ସାରାଂଶ ପ୍ରଦାନ କରିବ।</p>
+             <p className="text-sm mt-1">(Paste a video link and OdiaBot will provide a summary)</p>
            </div>
         )}
         {isLoading && summary === '' && (

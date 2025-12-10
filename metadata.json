@@ -1,8 +1,9 @@
 {
-  "name": "Satyashree",
-  "description": "Satyashree, a highly intelligent and empathetic chatbot for native-like conversations in the Odia language, featuring real-time search, voice chat, image analysis, and advanced reasoning capabilities.",
+  "name": "OdiaBot",
+  "description": "OdiaBot, a highly intelligent and empathetic chatbot for native-like conversations in the Odia language, featuring real-time search, voice chat, image analysis, and advanced reasoning capabilities.",
   "requestFramePermissions": [
     "microphone",
-    "geolocation"
+    "geolocation",
+    "camera"
   ]
 }

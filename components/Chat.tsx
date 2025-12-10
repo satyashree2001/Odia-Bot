@@ -1,7 +1,7 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type ChatMessage } from '../types';
-import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, SpeakerIcon, PlusIcon, LinkIcon, StopIcon, UserIcon, SatyashreeIcon } from './icons';
+import { SendIcon, PaperclipIcon, CloseIcon, DocumentIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, CheckIcon, SpeakerIcon, PlusIcon, LinkIcon, StopIcon, UserIcon, OdiaBotIcon, CameraIcon, SwitchCameraIcon } from './icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -31,6 +31,12 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'liked' | 'disliked'>>({});
 
+  // Camera State
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -57,6 +63,80 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
       if (isSpeechSynthesisSupported) window.speechSynthesis.cancel();
     };
   }, [isSpeechSynthesisSupported]);
+
+  // Camera Logic
+  const startCamera = async () => {
+      try {
+          if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
+          streamRef.current = stream;
+          if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+          }
+          setIsCameraOpen(true);
+      } catch (err) {
+          console.error("Error accessing camera:", err);
+          alert("କ୍ୟାମେରା ଆକ୍ସେସ୍ କରିବାରେ ଅସୁବିଧା ହେଲା। (Error accessing camera)");
+      }
+  };
+
+  const stopCamera = () => {
+      if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+      }
+      setIsCameraOpen(false);
+  };
+
+  const toggleCamera = () => {
+      setFacingMode(prev => {
+          const newMode = prev === 'user' ? 'environment' : 'user';
+          return newMode;
+      });
+  };
+
+  // Restart camera when facing mode changes if camera is already open
+  useEffect(() => {
+      if (isCameraOpen) {
+          startCamera();
+      }
+  }, [facingMode]);
+
+  const capturePhoto = () => {
+      if (videoRef.current) {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+              ctx.drawImage(videoRef.current, 0, 0);
+              canvas.toBlob((blob) => {
+                  if (blob) {
+                      const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+                      setFileError(null);
+                      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                          setFileError(`ଫାଇଲ୍ ଆକାର ${MAX_FILE_SIZE_MB}MB ରୁ ଅଧିକ ହେବା ଉଚିତ୍ ନୁହେଁ।`);
+                          return;
+                      }
+                      setFile(file);
+                      setFilePreview(URL.createObjectURL(file));
+                      stopCamera();
+                  }
+              }, 'image/jpeg');
+          }
+      }
+  };
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+      return () => {
+          if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+          }
+      };
+  }, []);
   
   const handleSpeak = (textToSpeak: string, messageId: string) => {
     if (!isSpeechSynthesisSupported) return;
@@ -177,6 +257,7 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
   }
 
   return (
+    <>
     <div className="h-full flex flex-col">
         <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto px-4 pt-8 pb-32">
           <div className="space-y-6">
@@ -184,7 +265,7 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
               <div key={msg.id} className={`w-full flex items-start gap-4 fade-in ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.sender === 'bot' && (
                   <div className="flex-shrink-0 w-8 h-8">
-                    <SatyashreeIcon />
+                    <OdiaBotIcon />
                   </div>
                 )}
                 
@@ -238,10 +319,15 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
                         <button onClick={removeFile} className="absolute top-1 right-1 bg-gray-200/50 rounded-full p-1 text-gray-600 hover:bg-gray-300 dark:bg-gray-600/50 dark:text-gray-300 dark:hover:bg-gray-500"><CloseIcon /></button>
                     </div>
                 )}
-                <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-blue-500">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="pl-3 pr-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" disabled={isLoading} aria-label="Attach file">
-                        <PaperclipIcon />
-                    </button>
+                <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-indigo-500">
+                    <div className="flex items-center pl-2">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" disabled={isLoading} aria-label="Attach file">
+                            <PaperclipIcon />
+                        </button>
+                        <button type="button" onClick={startCamera} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" disabled={isLoading} aria-label="Open camera">
+                            <CameraIcon />
+                        </button>
+                    </div>
                     <textarea 
                         ref={textareaRef}
                         value={input} 
@@ -276,10 +362,30 @@ const Chat: React.FC<ChatProps> = ({ messages, isLoading, onSendMessage, onStopG
                     </div>
                 </form>
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html"/>
-                 <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">Satyashree can make mistakes. Consider checking important information.</p>
+                 <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">OdiaBot can make mistakes. Consider checking important information.</p>
             </div>
         </div>
     </div>
+
+    {isCameraOpen && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+            <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                 <button onClick={stopCamera} className="absolute top-4 right-4 text-white p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50">
+                    <CloseIcon className="h-8 w-8" />
+                </button>
+                <button onClick={toggleCamera} className="absolute top-4 left-4 text-white p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50">
+                    <SwitchCameraIcon className="h-8 w-8" />
+                </button>
+            </div>
+            <div className="h-24 bg-black flex items-center justify-center gap-8 pb-4">
+                <button onClick={capturePhoto} className="w-16 h-16 rounded-full border-4 border-white bg-transparent flex items-center justify-center hover:bg-gray-800 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-white"></div>
+                </button>
+            </div>
+        </div>
+    )}
+    </>
   );
 };
 

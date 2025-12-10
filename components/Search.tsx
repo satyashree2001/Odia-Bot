@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { type GroundingChunk } from '../types';
 import { runSearch } from '../services/geminiService';
-import { SendIcon, LinkIcon, MapPinIcon, SearchIcon, UserIcon, SatyashreeIcon, StopIcon } from './icons';
+import { SendIcon, LinkIcon, MapPinIcon, SearchIcon, UserIcon, OdiaBotIcon, StopIcon } from './icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -126,8 +126,8 @@ const Search: React.FC = () => {
       <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto px-4 pt-8 pb-32">
         {conversation.length === 0 && (
            <div className="flex flex-col justify-center items-center h-full text-center text-gray-600 dark:text-gray-400">
-             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4 dark:bg-gray-700"><SatyashreeIcon className="h-10 w-10"/></div>
-             <p className="text-2xl font-medium text-gray-800 dark:text-gray-200">Satyashree Search</p>
+             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4 dark:bg-gray-700"><OdiaBotIcon className="h-10 w-10"/></div>
+             <p className="text-2xl font-medium text-gray-800 dark:text-gray-200">OdiaBot Search</p>
              <p className="mt-1">ବାସ୍ତବ-ସମୟ ତଥ୍ୟ, ଜଟିଳ ବିଶ୍ଳେଷଣ, ଏବଂ ଅଧିକ ପାଆନ୍ତୁ।</p>
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
                 {suggestions.map((s, i) => (
@@ -149,7 +149,7 @@ const Search: React.FC = () => {
                 <div className={`w-full flex items-start gap-4 fade-in ${turn.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {turn.role === 'model' && (
                     <div className="flex-shrink-0 w-8 h-8">
-                      <SatyashreeIcon />
+                      <OdiaBotIcon />
                     </div>
                   )}
                     
@@ -202,7 +202,7 @@ const Search: React.FC = () => {
       
       <div className="fixed bottom-0 left-0 right-0 bg-gray-50/80 backdrop-blur-md dark:bg-gray-900/80">
         <div className="max-w-4xl mx-auto px-4 py-3">
-            <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-blue-500">
+            <form onSubmit={handleSubmit} className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:focus-within:ring-indigo-500">
                 <textarea 
                     ref={textareaRef}
                     value={prompt} 
@@ -236,7 +236,7 @@ const Search: React.FC = () => {
                   )}
                 </div>
             </form>
-            <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">Satyashree can make mistakes. Consider checking important information.</p>
+            <p className="text-xs text-center text-gray-500 mt-2 dark:text-gray-400">OdiaBot can make mistakes. Consider checking important information.</p>
         </div>
       </div>
     </div>
