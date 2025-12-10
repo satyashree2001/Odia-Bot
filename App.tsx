@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [conversations, setConversations] = useState<Conversations>({});
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false); // Track if conversations have been loaded
   const abortControllerRef = useRef<AbortController | null>(null);
   
   // Theme management
@@ -69,60 +70,80 @@ const App: React.FC = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
+  const getStorageKey = useCallback((user: string | null) => `odiabot_conversations_${user || 'guest'}`, []);
+  const getActiveIdKey = useCallback((user: string | null) => `odiabot_activeConversationId_${user || 'guest'}`, []);
 
-  // Load user and conversations
-  useEffect(() => {
-    const savedUser = localStorage.getItem('odiabot_currentUser');
-    if (savedUser) {
-      setCurrentUser(savedUser);
-      loadConversations(savedUser);
-    } else {
-      handleNewChat(); // Start an anonymous chat
-    }
-  }, []);
-  
-  const loadConversations = (user: string) => {
-    const savedConversations = localStorage.getItem(`odiabot_conversations_${user}`);
-    const savedActiveId = localStorage.getItem(`odiabot_activeConversationId_${user}`);
+  const loadConversations = useCallback((user: string | null) => {
+    const storageKey = getStorageKey(user);
+    const activeIdKey = getActiveIdKey(user);
+    
+    const savedConversations = localStorage.getItem(storageKey);
+    const savedActiveId = localStorage.getItem(activeIdKey);
+    
+    let loadedConversations: Conversations = {};
     
     if (savedConversations) {
       try {
-        const parsedConversations = JSON.parse(savedConversations);
-        if (Object.keys(parsedConversations).length > 0) {
-            setConversations(parsedConversations);
-            if (savedActiveId && parsedConversations[savedActiveId]) {
-              setActiveConversationId(savedActiveId);
-            } else {
-              const firstConvId = Object.keys(parsedConversations)[0];
-              setActiveConversationId(firstConvId);
-            }
-        } else {
-             handleNewChat(user);
-        }
+        loadedConversations = JSON.parse(savedConversations);
       } catch (e) {
-        handleNewChat(user);
+        console.error("Error parsing conversations", e);
+      }
+    }
+
+    if (Object.keys(loadedConversations).length > 0) {
+        setConversations(loadedConversations);
+        if (savedActiveId && loadedConversations[savedActiveId]) {
+            setActiveConversationId(savedActiveId);
+        } else {
+            // Find most recent chat or just the first one
+            const sortedIds = Object.values(loadedConversations)
+            .sort((a: Conversation, b: Conversation) => 
+                (b.messages.slice(-1)[0]?.id || '').localeCompare(a.messages.slice(-1)[0]?.id || '')
+            ).map((c: Conversation) => c.id);
+            setActiveConversationId(sortedIds[0]);
+        }
+    } else {
+        // Initialize with a new chat if empty
+        const newId = `conv_${crypto.randomUUID()}`;
+        const newConversation: Conversation = {
+            id: newId,
+            title: 'ନୂଆ ବାର୍ତ୍ତାଳାପ',
+            messages: [getInitialMessage()],
+        };
+        setConversations({ [newId]: newConversation });
+        setActiveConversationId(newId);
+    }
+    setIsLoaded(true);
+  }, [getStorageKey, getActiveIdKey]);
+
+  // Load user and conversations on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('odiabot_currentUser');
+    setCurrentUser(savedUser);
+    loadConversations(savedUser);
+  }, [loadConversations]);
+  
+  // Save conversations when they change
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const storageKey = getStorageKey(currentUser);
+    const activeIdKey = getActiveIdKey(currentUser);
+
+    if (Object.keys(conversations).length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(conversations));
+      if (activeConversationId) {
+        localStorage.setItem(activeIdKey, activeConversationId);
       }
     } else {
-      handleNewChat(user);
+        // If conversations are empty (e.g. all deleted), clear storage
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(activeIdKey);
     }
-  };
-  
-  // Save conversations
-  useEffect(() => {
-    if (currentUser && Object.keys(conversations).length > 0) {
-      localStorage.setItem(`odiabot_conversations_${currentUser}`, JSON.stringify(conversations));
-      if (activeConversationId) {
-        localStorage.setItem(`odiabot_activeConversationId_${currentUser}`, activeConversationId);
-      }
-    } else if (currentUser && Object.keys(conversations).length === 0) {
-      // If all conversations are deleted, remove the item from local storage
-      localStorage.removeItem(`odiabot_conversations_${currentUser}`);
-      localStorage.removeItem(`odiabot_activeConversationId_${currentUser}`);
-    }
-  }, [conversations, activeConversationId, currentUser]);
+  }, [conversations, activeConversationId, currentUser, isLoaded, getStorageKey, getActiveIdKey]);
 
 
-  const handleNewChat = useCallback((user: string | null = currentUser) => {
+  const handleNewChat = useCallback(() => {
     const newId = `conv_${crypto.randomUUID()}`;
     const newConversation: Conversation = {
       id: newId,
@@ -131,42 +152,42 @@ const App: React.FC = () => {
     };
     setConversations(prev => ({ ...prev, [newId]: newConversation }));
     setActiveConversationId(newId);
-    if(isHistorySidebarOpen) setIsHistorySidebarOpen(false);
+    if(isHistorySidebarOpen && window.innerWidth < 768) setIsHistorySidebarOpen(false);
     setActiveMode('chat');
-  }, [currentUser, isHistorySidebarOpen]);
+  }, [isHistorySidebarOpen]);
 
   const handleLoadConversation = (id: string) => {
     if (conversations[id]) {
       setActiveConversationId(id);
       setActiveMode('chat');
-      setIsHistorySidebarOpen(false);
+      if (window.innerWidth < 768) setIsHistorySidebarOpen(false);
     }
   };
 
   const handleDeleteConversation = (id: string) => {
-    if (!currentUser) return;
-  
     const newConversations = { ...conversations };
     delete newConversations[id];
   
-    if (activeConversationId !== id) {
-      setConversations(newConversations);
-      return;
+    if (Object.keys(newConversations).length === 0) {
+         // Manually create new chat to replace state immediately
+         const newId = `conv_${crypto.randomUUID()}`;
+         const newConversation: Conversation = {
+             id: newId,
+             title: 'ନୂଆ ବାର୍ତ୍ତାଳାପ',
+             messages: [getInitialMessage()],
+         };
+         setConversations({ [newId]: newConversation });
+         setActiveConversationId(newId);
+         return;
     }
-  
-    const remainingIds = Object.keys(newConversations);
-    if (remainingIds.length > 0) {
-      const sortedIds = Object.values(newConversations)
-        .sort((a: Conversation, b: Conversation) =>
-          (b.messages.slice(-1)[0]?.id || '').localeCompare(a.messages.slice(-1)[0]?.id || '')
-        )
-        .map((c: Conversation) => c.id);
-      
-      setActiveConversationId(sortedIds[0]);
-      setConversations(newConversations);
-    } else {
-      handleNewChat();
+
+    if (activeConversationId === id) {
+      const remainingIds = Object.keys(newConversations);
+      // Sort to find nearest or most recent
+      // For simplicity here, just pick the first one remaining
+      setActiveConversationId(remainingIds[0]);
     }
+    setConversations(newConversations);
   };
 
   const handleRenameConversation = (id: string, newTitle: string) => {
@@ -195,7 +216,7 @@ const App: React.FC = () => {
     
     const isNewConversation = conversations[activeConversationId]?.messages.length === 1;
 
-    if (isNewConversation && currentUser) {
+    if (isNewConversation) {
         generateTitleForChat(prompt).then(title => {
             handleRenameConversation(activeConversationId, title);
         });
@@ -287,6 +308,7 @@ const App: React.FC = () => {
       localStorage.setItem('odiabot_currentUser', trimmedUsername);
       setCurrentUser(trimmedUsername);
       setIsAuthModalOpen(false);
+      setIsLoaded(false); // Reset loaded flag before loading new user
       loadConversations(trimmedUsername);
     }
   };
@@ -296,7 +318,8 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setConversations({});
     setActiveConversationId(null);
-    handleNewChat(null);
+    setIsLoaded(false); // Reset loaded flag
+    loadConversations(null); // Load guest
   };
 
   const activeMessages = activeConversationId ? conversations[activeConversationId]?.messages : [];
@@ -329,27 +352,23 @@ const App: React.FC = () => {
   return (
     <>
       {showWelcome && <Welcome onDismiss={handleDismissWelcome} />}
-      {currentUser && 
-        <HistorySidebar
-            isOpen={isHistorySidebarOpen}
-            onClose={() => setIsHistorySidebarOpen(false)}
-            conversations={conversations}
-            activeConversationId={activeConversationId}
-            onLoad={handleLoadConversation}
-            onNew={handleNewChat}
-            onDelete={handleDeleteConversation}
-            onRename={handleRenameConversation}
-        />
-      }
+      <HistorySidebar
+          isOpen={isHistorySidebarOpen}
+          onClose={() => setIsHistorySidebarOpen(false)}
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onLoad={handleLoadConversation}
+          onNew={handleNewChat}
+          onDelete={handleDeleteConversation}
+          onRename={handleRenameConversation}
+      />
       <div className={`h-full bg-gray-50 text-gray-800 flex flex-col font-sans dark:bg-gray-900 dark:text-gray-200 ${showWelcome ? 'hidden' : ''}`}>
         <header className="flex-shrink-0 bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
           <div className="container mx-auto flex justify-between items-center h-16 px-4">
             <div className="flex items-center gap-2">
-                {currentUser && (
-                    <button onClick={() => setIsHistorySidebarOpen(true)} className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700">
-                        <MenuIcon />
-                    </button>
-                )}
+                <button onClick={() => setIsHistorySidebarOpen(true)} className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700">
+                    <MenuIcon />
+                </button>
             </div>
 
             <div className="relative">

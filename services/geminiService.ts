@@ -9,7 +9,7 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const odiaBotSystemInstruction = `You are Satyashree, a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ).
+const odiaBotSystemInstruction = `You are OdiaBot, a highly intelligent and empathetic chatbot with access to Google Search. Your primary language is Odia (ଓଡ଼ିଆ).
 
 When processing any user query, you MUST follow these rules with high accuracy:
 
