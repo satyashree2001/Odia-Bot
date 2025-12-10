@@ -358,6 +358,8 @@ export const generateTitleForChat = async (prompt: string): Promise<string> => {
     return title || 'ନୂଆ ବାର୍ତ୍ତାଳାପ';
   } catch (error) {
     console.error('Error generating title:', error);
+    
     return 'ନୂଆ ବାର୍ତ୍ତାଳାପ'; 
   }
+  // टेस्ट: API की शुरूआत है - ${process.env.GEMINI_API_KEY?.slice(0,5)}
 };
