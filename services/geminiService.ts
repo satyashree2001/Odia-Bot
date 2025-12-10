@@ -1,7 +1,7 @@
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { type ChatMessage, type GroundingChunk, type Turn } from '../types';
 
-const API_KEY = "AIzaSyDZfF62dobp_66yIGJj7gCfdF0hoTlQSGs";
+const API_KEY = "AIzaSyB7wswkHN9OBz_cS2jVDOrLRa8B1iK_XX4";
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
