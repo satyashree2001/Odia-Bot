@@ -46,7 +46,7 @@ export interface Turn {
   text: string;
 }
 
-export type NotebookArtifactType = 'summary' | 'pdf' | 'word' | 'slides' | 'infographic' | 'podcast';
+export type NotebookArtifactType = 'summary' | 'pdf' | 'word' | 'slides' | 'infographic' | 'podcast' | 'image_infographic';
 
 export interface NotebookSlide {
   title: string;
@@ -66,4 +66,5 @@ export interface NotebookArtifact {
   slides?: NotebookSlide[];
   infographic?: NotebookInfographicItem[];
   podcastScript?: { speaker: string; text: string }[];
+  imageUrl?: string;
 }

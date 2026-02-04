@@ -4,9 +4,9 @@ import { jsPDF } from 'jspdf';
 import * as docx from 'docx';
 import { 
   PlusIcon, TrashIcon, SendIcon, DocumentIcon, PDFIcon, WordIcon, 
-  SlideIcon, InfographicIcon, PodcastIcon, StopIcon, SpeakerIcon, CloseIcon, CheckIcon, SparklesIcon
+  SlideIcon, InfographicIcon, PodcastIcon, StopIcon, SpeakerIcon, CloseIcon, CheckIcon, SparklesIcon, ImageIcon
 } from './icons';
-import { generateNotebookContent, generatePodcastAudio } from '../services/geminiService';
+import { generateNotebookContent, generatePodcastAudio, generateImageInfographic } from '../services/geminiService';
 import { NotebookArtifact, NotebookArtifactType } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -46,6 +46,20 @@ const OdiaNotebook: React.FC = () => {
 
     try {
       const filePayload = files.map(f => ({ data: f.data, mimeType: f.mimeType }));
+      
+      if (type === 'image_infographic') {
+        const imageUrl = await generateImageInfographic(prompt || "Create a beautiful infographic summary", filePayload);
+        const newArtifact: NotebookArtifact = {
+          type,
+          title: `Visual Infographic - ${new Date().toLocaleTimeString()}`,
+          content: '',
+          imageUrl: imageUrl
+        };
+        setArtifacts(prev => [newArtifact, ...prev]);
+        setActiveArtifactIndex(0);
+        return;
+      }
+
       const result = await generateNotebookContent(prompt || "Analyze these documents", type, filePayload);
       
       const newArtifact: NotebookArtifact = {
@@ -176,29 +190,29 @@ const OdiaNotebook: React.FC = () => {
              placeholder="What do you want to generate?"
              className="w-full text-sm p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-24"
            />
-           <div className="grid grid-cols-3 gap-2 mt-4">
-             <button onClick={() => handleGenerate('summary')} className="flex flex-col items-center p-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300">
-               <SparklesIcon className="h-4 w-4 mb-1" />
+           <div className="grid grid-cols-2 gap-2 mt-4">
+             <button onClick={() => handleGenerate('summary')} className="flex items-center gap-2 p-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300">
+               <SparklesIcon className="h-4 w-4" />
                <span className="text-[10px] font-bold">Summary</span>
              </button>
-             <button onClick={() => handleGenerate('pdf')} className="flex flex-col items-center p-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">
-               <PDFIcon className="h-4 w-4 mb-1" />
+             <button onClick={() => handleGenerate('image_infographic')} className="flex items-center gap-2 p-2 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300">
+               <ImageIcon className="h-4 w-4" />
+               <span className="text-[10px] font-bold">Visual Infog.</span>
+             </button>
+             <button onClick={() => handleGenerate('pdf')} className="flex items-center gap-2 p-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">
+               <PDFIcon className="h-4 w-4" />
                <span className="text-[10px] font-bold">PDF</span>
              </button>
-             <button onClick={() => handleGenerate('word')} className="flex flex-col items-center p-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300">
-               <WordIcon className="h-4 w-4 mb-1" />
+             <button onClick={() => handleGenerate('word')} className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300">
+               <WordIcon className="h-4 w-4" />
                <span className="text-[10px] font-bold">Word</span>
              </button>
-             <button onClick={() => handleGenerate('slides')} className="flex flex-col items-center p-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300">
-               <SlideIcon className="h-4 w-4 mb-1" />
+             <button onClick={() => handleGenerate('slides')} className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300">
+               <SlideIcon className="h-4 w-4" />
                <span className="text-[10px] font-bold">Slides</span>
              </button>
-             <button onClick={() => handleGenerate('infographic')} className="flex flex-col items-center p-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300">
-               <InfographicIcon className="h-4 w-4 mb-1" />
-               <span className="text-[10px] font-bold">Chart</span>
-             </button>
-             <button onClick={() => handleGenerate('podcast')} className="flex flex-col items-center p-2 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300">
-               <PodcastIcon className="h-4 w-4 mb-1" />
+             <button onClick={() => handleGenerate('podcast')} className="flex items-center gap-2 p-2 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300">
+               <PodcastIcon className="h-4 w-4" />
                <span className="text-[10px] font-bold">Podcast</span>
              </button>
            </div>
@@ -212,6 +226,7 @@ const OdiaNotebook: React.FC = () => {
              <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
                 <p className="mt-4 font-bold text-gray-800 dark:text-gray-100">ଓଡ଼ିଆରେ ପ୍ରସ୍ତୁତ କରୁଛି (Generating in Odia)...</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Creating high-quality visual content. Please wait.</p>
              </div>
           </div>
         )}
@@ -257,10 +272,25 @@ const OdiaNotebook: React.FC = () => {
                       <WordIcon />
                     </button>
                   )}
+                  {activeArtifact.type === 'image_infographic' && activeArtifact.imageUrl && (
+                    <a href={activeArtifact.imageUrl} download="infographic.png" className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200" title="Download Image">
+                      <ImageIcon />
+                    </a>
+                  )}
                 </div>
               </div>
 
               {/* Specific Artifact Views */}
+              {activeArtifact.type === 'image_infographic' && activeArtifact.imageUrl && (
+                <div className="flex justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-lg">
+                  <img 
+                    src={activeArtifact.imageUrl} 
+                    alt="Odia Visual Infographic" 
+                    className="max-w-full rounded-2xl shadow-xl"
+                  />
+                </div>
+              )}
+
               {activeArtifact.type === 'summary' && (
                 <div className="prose prose-indigo dark:prose-invert max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>

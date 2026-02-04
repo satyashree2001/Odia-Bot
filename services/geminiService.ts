@@ -524,6 +524,51 @@ export const generateNotebookContent = async (
   }
 };
 
+export const generateImageInfographic = async (
+  prompt: string,
+  files?: { data: string; mimeType: string }[]
+): Promise<string> => {
+  try {
+    // We use gemini-3-pro-image-preview for high quality output.
+    const imagePrompt = `Generate a high-quality, professional, and visually accurate infographic based on the following context. 
+    The infographic MUST contain text in Odia script. 
+    Design it with a modern aesthetic, clear sections, icons, and data visualizations where appropriate.
+    
+    Context/Prompt: ${prompt}`;
+
+    const contents: any[] = [{ text: imagePrompt }];
+    if (files) {
+      files.forEach(f => {
+        contents.push({
+          inlineData: { data: f.data, mimeType: f.mimeType }
+        });
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-image-preview',
+      contents: contents,
+      config: {
+        imageConfig: {
+          aspectRatio: "3:4",
+          imageSize: "2K"
+        }
+      }
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    
+    throw new Error("No image data found in response");
+  } catch (error) {
+    console.error("Error generating image infographic:", error);
+    throw error;
+  }
+};
+
 export const generatePodcastAudio = async (script: { speaker: string; text: string }[]): Promise<string> => {
   try {
     const fullText = script.map(s => `${s.speaker}: ${s.text}`).join('\n\n');
