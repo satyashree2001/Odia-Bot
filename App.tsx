@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon, SunIcon, MoonIcon, OdiaBotIcon } from './components/icons';
+import { UserIcon, LogoutIcon, MenuIcon, ChatIcon, SearchIcon, MicrophoneIcon, SunIcon, MoonIcon, OdiaBotIcon, NotebookIcon } from './components/icons';
 import Chat from './components/Chat';
 import AuthModal from './components/AuthModal';
 import Welcome from './components/Welcome';
 import HistorySidebar from './components/HistorySidebar';
 import Search from './components/Search';
 import VoiceChat from './components/VoiceChat';
+import OdiaNotebook from './components/OdiaNotebook';
 
 import { type ChatMessage, type Conversations, type Conversation } from './types';
 import { runChat, generateTitleForChat } from './services/geminiService';
@@ -27,7 +28,7 @@ const getInitialMessage = (): ChatMessage => {
   };
 };
 
-type Mode = 'chat' | 'search' | 'voice';
+type Mode = 'chat' | 'search' | 'voice' | 'notebook';
 type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
@@ -328,6 +329,7 @@ const App: React.FC = () => {
     chat: { name: 'ଗପସପ (Chat)', icon: <ChatIcon /> },
     search: { name: 'ଖୋଜ (Search)', icon: <SearchIcon /> },
     voice: { name: 'ଭଏସ୍ (Voice)', icon: <MicrophoneIcon /> },
+    notebook: { name: 'ନୋଟବୁକ୍ (Notebook)', icon: <NotebookIcon /> },
   };
 
   const renderActiveMode = () => {
@@ -344,6 +346,8 @@ const App: React.FC = () => {
         return <Search />;
       case 'voice':
         return <VoiceChat />;
+      case 'notebook':
+        return <OdiaNotebook />;
       default:
         return null;
     }

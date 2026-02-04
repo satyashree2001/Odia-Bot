@@ -1,5 +1,3 @@
-
-
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'bot';
@@ -46,4 +44,26 @@ export interface GroundingChunk {
 export interface Turn {
   role: 'user' | 'model';
   text: string;
+}
+
+export type NotebookArtifactType = 'summary' | 'pdf' | 'word' | 'slides' | 'infographic' | 'podcast';
+
+export interface NotebookSlide {
+  title: string;
+  content: string[];
+}
+
+export interface NotebookInfographicItem {
+  title: string;
+  value: string;
+  description: string;
+}
+
+export interface NotebookArtifact {
+  type: NotebookArtifactType;
+  title: string;
+  content: string; // Markdown or specialized JSON string
+  slides?: NotebookSlide[];
+  infographic?: NotebookInfographicItem[];
+  podcastScript?: { speaker: string; text: string }[];
 }

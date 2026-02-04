@@ -17,7 +17,9 @@
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dropzone": "https://aistudiocdn.com/react-dropzone@^14.3.8",
     "react-markdown": "https://aistudiocdn.com/react-markdown@^9.0.1",
-    "remark-gfm": "https://aistudiocdn.com/remark-gfm@^4.0.0"
+    "remark-gfm": "https://aistudiocdn.com/remark-gfm@^4.0.0",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "docx": "https://esm.sh/docx@8.5.0"
   }
 }
 </script>
@@ -109,6 +111,14 @@
       }
       .dark ::-webkit-scrollbar-thumb:hover {
         background: #64748B; /* slate-500 */
+      }
+
+      /* Notebook styles */
+      .notebook-artifact {
+        min-height: 500px;
+      }
+      .slide-container {
+        aspect-ratio: 16 / 9;
       }
     </style>
 </head>

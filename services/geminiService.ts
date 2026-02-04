@@ -1,7 +1,7 @@
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
-import { type ChatMessage, type GroundingChunk, type Turn } from '../types';
+import { GoogleGenAI, GenerateContentResponse, Type, Modality } from '@google/genai';
+import { type ChatMessage, type GroundingChunk, type Turn, type NotebookArtifactType } from '../types';
 
-const API_KEY = "AIzaSyDhdCThMbVG6VM-6pxOEuX8tuLPkjsLK-k";
+const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -128,7 +128,7 @@ export const analyzeImageForText = async (base64Data: string, mimeType: string):
     };
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3-pro-preview',
       contents: { parts: [imagePart, textPart] },
       config: {
         systemInstruction: odiaBotSystemInstruction
@@ -163,7 +163,7 @@ Output ONLY the Odia transcription.`;
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [audioPart, textPart] },
     });
 
@@ -207,7 +207,7 @@ Respond with only the word 'fast' or 'expert'.
 Query: "${trimmedPrompt}"`;
 
       const classificationResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: classifierPrompt,
       });
       const classification = classificationResponse.text.trim().toLowerCase();
@@ -238,7 +238,7 @@ Query: "${trimmedPrompt}"`;
     contents.push({ role: 'user', parts: userParts });
 
     // Force pro model for video URLs to ensure better reasoning/analysis
-    const modelName = (mode === 'fast' && !isVideoUrl) ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
+    const modelName = (mode === 'fast' && !isVideoUrl) ? 'gemini-3-flash-preview' : 'gemini-3-pro-preview';
     const systemInstruction = mode === 'fast' ? fastModeInstruction : odiaBotSystemInstruction;
 
     const config: any = {
@@ -309,11 +309,11 @@ export const runSearch = async (
     }));
     historyForApi.push({ role: 'user', parts: [{ text: prompt }] });
 
-    let modelName = 'gemini-2.5-flash';
+    let modelName = 'gemini-3-flash-preview';
     let config: any = { systemInstruction: odiaBotSystemInstruction };
 
     if (isVideoUrl) {
-      modelName = 'gemini-2.5-pro';
+      modelName = 'gemini-3-pro-preview';
       config.thinkingConfig = { thinkingBudget: 16000 };
     } else {
       const classifierPrompt = `Classify the following user query as 'simple_search' or 'complex_query'. 
@@ -323,13 +323,13 @@ Respond with only the word 'simple_search' or 'complex_query'.
 Query: "${prompt}"`;
       
       const classificationResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: classifierPrompt,
       });
       const classification = classificationResponse.text.trim().toLowerCase();
       
       if (classification === 'complex_query') {
-        modelName = 'gemini-2.5-pro';
+        modelName = 'gemini-3-pro-preview';
         config.thinkingConfig = { thinkingBudget: 16000 };
       } else { // 'simple_search'
         const tools: any[] = [{ googleSearch: {} }];
@@ -388,7 +388,7 @@ export const generateTitleForChat = async (prompt: string): Promise<string> => {
     const titlePrompt = `Please create a very short, concise title in the Odia language (3-5 words maximum) for a conversation that starts with this user prompt: "${prompt}". Respond with only the title text and nothing else.`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: titlePrompt,
     });
     
@@ -397,5 +397,162 @@ export const generateTitleForChat = async (prompt: string): Promise<string> => {
   } catch (error) {
     console.error('Error generating title:', error);
     return 'ନୂଆ ବାର୍ତ୍ତାଳାପ'; 
+  }
+};
+
+export const generateNotebookContent = async (
+  prompt: string, 
+  type: NotebookArtifactType,
+  files?: { data: string; mimeType: string }[]
+): Promise<any> => {
+  try {
+    let systemInstruction = `You are an expert content creator in Odia. 
+    Your goal is to generate high-quality ${type} content based on the user's prompt and provided documents.
+    ALWAYS respond in pure Odia script unless technical terms are needed.
+    Provide the output in a structured JSON format suitable for the requested type.`;
+
+    let responseSchema: any = { type: Type.OBJECT, properties: {}, required: [] };
+
+    if (type === 'summary') {
+      responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ['title', 'summary', 'keyPoints']
+      };
+    } else if (type === 'pdf' || type === 'word') {
+       responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          sections: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: {
+                heading: { type: Type.STRING },
+                content: { type: Type.STRING }
+              }
+            } 
+          }
+        },
+        required: ['title', 'sections']
+      };
+    } else if (type === 'slides') {
+      responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          slides: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                content: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            }
+          }
+        },
+        required: ['title', 'slides']
+      };
+    } else if (type === 'infographic') {
+      responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          items: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                value: { type: Type.STRING },
+                description: { type: Type.STRING }
+              }
+            }
+          }
+        },
+        required: ['title', 'items']
+      };
+    } else if (type === 'podcast') {
+      responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          script: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                speaker: { type: Type.STRING, description: "Must be 'Speaker 1' or 'Speaker 2'" },
+                text: { type: Type.STRING }
+              }
+            }
+          }
+        },
+        required: ['title', 'script']
+      };
+    }
+
+    const contents: any[] = [{ text: prompt }];
+    if (files) {
+      files.forEach(f => {
+        contents.push({
+          inlineData: { data: f.data, mimeType: f.mimeType }
+        });
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema
+      }
+    });
+
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error(`Error generating ${type}:`, error);
+    throw error;
+  }
+};
+
+export const generatePodcastAudio = async (script: { speaker: string; text: string }[]): Promise<string> => {
+  try {
+    const fullText = script.map(s => `${s.speaker}: ${s.text}`).join('\n\n');
+    const prompt = `Convert the following conversation into audio with two distinct speakers:
+    Speaker 1: Male, professional, hosting.
+    Speaker 2: Female, knowledgeable, interviewing.
+    
+    Script:
+    ${fullText}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: [
+              { speaker: 'Speaker 1', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+              { speaker: 'Speaker 2', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
+            ]
+          }
+        }
+      }
+    });
+
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || '';
+  } catch (error) {
+    console.error("Error generating podcast audio:", error);
+    throw error;
   }
 };
